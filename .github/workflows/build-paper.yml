@@ -1,0 +1,54 @@
+name: Build paper PDF
+
+on:
+  push:
+      paths:
+            - "paper/**"
+                  - ".github/workflows/build-paper.yml"
+                    workflow_dispatch:
+
+                    permissions:
+                      contents: write
+
+                      jobs:
+                        build:
+                            runs-on: ubuntu-latest
+                                steps:
+                                      - name: Checkout
+                                              uses: actions/checkout@v4
+
+                                                    - name: Set up Pandoc + LaTeX
+                                                            run: |
+                                                                      sudo apt-get update
+                                                                                sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended texlive-latex-recommended texlive-latex-extra lmodern
+
+                                                                                      - name: Build PDF
+                                                                                              run: |
+                                                                                                        mkdir -p paper/build
+                                                                                                                  pandoc paper/article.md \
+                                                                                                                              -o paper/build/article.pdf \
+                                                                                                                                          --pdf-engine=xelatex \
+                                                                                                                                                      -V geometry:margin=1in \
+                                                                                                                                                                  -V mainfont="Latin Modern Roman" \
+                                                                                                                                                                              -V monofont="Latin Modern Mono" \
+                                                                                                                                                                                          -V colorlinks=true \
+                                                                                                                                                                                                      -V linkcolor=blue \
+                                                                                                                                                                                                                  -V urlcolor=blue \
+                                                                                                                                                                                                                              --toc \
+                                                                                                                                                                                                                                          --number-sections
+                                                                                                                                                                                                                                          
+                                                                                                                                                                                                                                                - name: Upload PDF as workflow artifact
+                                                                                                                                                                                                                                                        uses: actions/upload-artifact@v4
+                                                                                                                                                                                                                                                                with:
+                                                                                                                                                                                                                                                                          name: article-pdf
+                                                                                                                                                                                                                                                                                    path: paper/build/article.pdf
+                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                          - name: Publish PDF to a "paper-pdf" release (on push to main)
+                                                                                                                                                                                                                                                                                                  if: github.ref == 'refs/heads/main'
+                                                                                                                                                                                                                                                                                                          uses: softprops/action-gh-release@v2
+                                                                                                                                                                                                                                                                                                                  with:
+                                                                                                                                                                                                                                                                                                                            tag_name: paper-pdf-latest
+                                                                                                                                                                                                                                                                                                                                      name: "Paper PDF (latest build)"
+                                                                                                                                                                                                                                                                                                                                                body: "Auto-built PDF from paper/article.md."
+                                                                                                                                                                                                                                                                                                                                                          files: paper/build/article.pdf
+                                                                                                                                                                                                                                                                                                                                                          
