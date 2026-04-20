@@ -17,23 +17,9 @@ The agent trades on an Alpaca **paper** account, logs every decision and order, 
             - - Works out-of-the-box **without** any LLM key (pure rules mode)
               - - Optional OpenAI or Anthropic hook for the LLM reasoning layer
                
-                - ## Quickstart
+                - ## Project structure
                
-                - ```bash
-                  git clone https://github.com/jeandirel/securefinai-openclaw-agent.git
-                  cd securefinai-openclaw-agent
-                  python -m venv .venv && source .venv/bin/activate   # on Windows: .venv\Scripts\activate
-                  pip install -r requirements.txt
-                  cp .env.example .env
-                  # edit .env and fill ALPACA_API_KEY / ALPACA_SECRET_KEY (paper account)
-                  python -m agent.main
-                  ```
-
-                  The agent runs a decision loop every `DECISION_INTERVAL_MIN` minutes (default 30) until you stop it (Ctrl+C).
-
-                  ## Project structure
-
-                  ```
+                - ```
                   securefinai-openclaw-agent/
                   ├── README.md
                   ├── requirements.txt
@@ -56,21 +42,126 @@ The agent trades on an Alpaca **paper** account, logs every decision and order, 
                   └── logs/            # created at runtime
                   ```
 
-                  ## Contest compliance
+                  ## Getting started — step by step
 
-                  - Time period: **April 20 – May 1, 2026**
-                  - - Initial capital: **$100,000** (Alpaca default paper balance)
-                    - - Market: **crypto** (single account). For the stock track, create a second Alpaca account and set `MARKET=stock`.
+                  Follow these 8 steps to go from a fresh clone to a contest-ready submission.
+
+                  ### 1. Create an Alpaca paper trading account
+
+                  - Sign up at <https://alpaca.markets>.
+                  - - Switch the dashboard to **Paper trading** mode.
+                    - - Open *API Keys* and generate a new key pair. Copy the **API Key** and **Secret Key** right away (the secret is shown only once).
                      
-                      - ## What you must do yourself
+                      - ### 2. Clone the repo and install dependencies
                      
-                      - 1. Create an Alpaca **paper** trading account at <https://alpaca.markets>.
-                        2. 2. Copy your paper API key + secret into `.env`.
-                           3. 3. (Optional) Add an `OPENAI_API_KEY` or `ANTHROPIC_API_KEY` to enable the LLM layer.
-                              4. 4. Run `python -m agent.main` on a machine that stays online (or a small VPS / Colab with a keep-alive).
-                                 5. 5. On May 1, run `python scripts/snapshot_portfolio.py` and submit the three log files + snapshot to the contest form.
+                      - ```bash
+                        git clone https://github.com/jeandirel/securefinai-openclaw-agent.git
+                        cd securefinai-openclaw-agent
+                        python -m venv .venv
+                        source .venv/bin/activate          # Windows: .venv\Scripts\activate
+                        pip install -r requirements.txt
+                        ```
+
+                        ### 3. Configure your `.env`
+
+                        ```bash
+                        cp .env.example .env
+                        ```
+
+                        Edit `.env` and paste your Alpaca paper keys:
+
+                        ```
+                        ALPACA_API_KEY=PK...
+                        ALPACA_SECRET_KEY=...
+                        MARKET=crypto
+                        ```
+
+                        Never commit the real `.env` — it is already protected by `.gitignore`.
+
+                        ### 4. (Optional) Enable the LLM layer
+
+                        Still in `.env`, set either:
+
+                        ```
+                        LLM_PROVIDER=openai
+                        OPENAI_API_KEY=sk-...
+                        ```
+
+                        or
+
+                        ```
+                        LLM_PROVIDER=anthropic
+                        ANTHROPIC_API_KEY=sk-ant-...
+                        ```
+
+                        Leave `LLM_PROVIDER` empty to run in pure-rules mode (no external API calls).
+
+                        ### 5. Run the agent
+
+                        ```bash
+                        python -m agent.main
+                        ```
+
+                        The agent takes a decision every `DECISION_INTERVAL_MIN` minutes (default 30).
+                        Run it on a machine that stays online. Useful options:
+
+                        - Linux/Mac in the background: `nohup python -m agent.main > logs/stdout.log 2>&1 &`
+                        - - Small VPS (DigitalOcean / Hetzner / OVH) running a `tmux` or `systemd` service
+                          - - Any always-on desktop
+                           
+                            - ### 6. Monitor the agent
+                           
+                            - - Tail the structured log: `tail -f logs/agent.log`
+                              - - Inspect orders: `tail -f logs/orders.jsonl`
+                                - - Watch your equity live on the Alpaca paper dashboard
+                                  - - The agent is resilient: transient errors are logged and the next cycle keeps running
                                    
-                                    6. ## License
+                                    - ### 7. On May 1 — stop and export
                                    
-                                    7. MIT — see `LICENSE`.
-                                    8. 
+                                    - 1. Stop the agent with `Ctrl+C` (or `kill <pid>` if running in background).
+                                      2. 2. Compute contest metrics (CR, Sharpe, Max Drawdown, Daily / Annualized Volatility):
+                                        
+                                         3.    ```bash
+                                                  python scripts/export_equity.py
+                                                  ```
+
+                                               3. Take the final portfolio snapshot:
+                                           
+                                               4.    ```bash
+                                                        python scripts/snapshot_portfolio.py
+                                                        ```
+
+                                                        This writes `logs/portfolio_snapshot.json`.
+
+                                                 ### 8. Submit to the contest
+
+                                           Upload these files via the official SecureFinAI Contest 2026 submission form:
+
+                                         - `logs/orders.jsonl`
+                                         - - `logs/equity.csv`
+                                           - - `logs/portfolio_snapshot.json`
+                                            
+                                             - You can also attach `logs/metrics.json` and this repo's URL for reproducibility.
+                                            
+                                             - ## Contest compliance
+                                            
+                                             - - Time period: **April 20 – May 1, 2026**
+                                               - - Initial capital: **$100,000** (Alpaca default paper balance)
+                                                 - - Market: **crypto** (single account). For the stock track, create a second Alpaca account and set `MARKET=stock`.
+                                                  
+                                                   - ## Troubleshooting
+                                                  
+                                                   - - **Alpaca symbol format** (`BTC/USD` vs `BTCUSD`): behavior depends on the `alpaca-py` version. If you see a symbol error, upgrade: `pip install -U "alpaca-py>=0.30"`, or edit `_to_alpaca_symbol` in `agent/alpaca_client.py`.
+                                                     - - **Not enough bars** on the first cycle: lower `LOOKBACK_BARS` or wait a few cycles so the data client warms up.
+                                                       - - **Rate limits** from the LLM: lower `DECISION_INTERVAL_MIN` back up or disable `LLM_PROVIDER` temporarily.
+                                                        
+                                                         - ## Contest links
+                                                        
+                                                         - - Contest site: <https://open-finance-lab.github.io/SecureFinAI_Contest_2026/>
+                                                           - - Discord: <https://discord.gg/dJY5cKzmkv>
+                                                             - - Email: finrlcontest@gmail.com
+                                                              
+                                                               - ## License
+                                                              
+                                                               - MIT — see `LICENSE`.
+                                                               - 
