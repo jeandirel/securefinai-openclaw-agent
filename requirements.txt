@@ -1,0 +1,8 @@
+alpaca-py>=0.30.0
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+requests>=2.31.0
+# Optional LLM providers (install only the one you use)
+openai>=1.30.0
+anthropic>=0.25.0
