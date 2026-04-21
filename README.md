@@ -1,4 +1,12 @@
-# SecureFinAI OpenClaw Agent (Task V)
+> **Academic Context**
+> >
+> >> This repository was developed as a course deliverable for **PGE5 - AI in Finance** at aivancity (instructor: Mostapha Benhenda, Spring 2026). It is inspired by **Task V (Agentic Trading Using OpenClaw)** of the SecureFinAI Contest 2026 organized by the Open Finance Lab.
+> >> >
+> >> >> The project was built after the official contest deadlines had passed (Solution Submission: April 20, 2026; Paper Submission: March 10, 2026). It is therefore not a formal contest entry but a standalone academic project that follows the Task V specification end-to-end: LLM-assisted agent design, Alpaca paper trading on the crypto market (BTC/USD, ETH/USD, SOL/USD), contest-compliant log format (`orders.jsonl`, `equity.csv`, `portfolio_snapshot.json`), and a scientific paper (`paper/article.md`) covering motivation, method, experiments, and discussion.
+> >> >> >
+> >> >> >> Reference: SecureFinAI Contest 2026 — https://open-finance-lab.github.io/SecureFinAI_Contest_2026/
+> >> >> >>
+> >> >> >> # SecureFinAI OpenClaw Agent (Task V)
 
 LLM-assisted crypto paper-trading agent for the **SecureFinAI Contest 2026 – Task V (OpenClaw / Alpaca)**.
 
