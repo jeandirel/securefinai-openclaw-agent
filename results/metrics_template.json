@@ -1,0 +1,9 @@
+{
+  "cumulative_return": null,
+  "sharpe_ratio": null,
+  "max_drawdown": null,
+  "volatility": null,
+  "llm_veto_rate": null,
+  "decision_consistency": null,
+  "notes": "Metrics must be computed from actual paper trading logs. Do not replace null values with invented results."
+}

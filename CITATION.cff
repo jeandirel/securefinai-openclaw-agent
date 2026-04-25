@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "OpenClaw-Agent: A Risk-Aware LLM-Assisted Trading Agent for Secure Financial AI"
+abstract: "OpenClaw-Agent is a risk-aware, LLM-assisted paper-trading agent built on the Alpaca paper-trading API. It combines deterministic technical signals (EMA crossover, RSI, momentum) with an optional LLM review-only filter and an explicit risk envelope (per-position cap, gross exposure, stop-loss, take-profit). Developed as a PGE5 AI-in-Finance term paper at Aivancity, inspired by the SecureFinAI Contest 2026 (Task V, OpenClaw / Alpaca)."
+authors:
+  - family-names: "Direl"
+    given-names: "Jean"
+    affiliation: "Aivancity, PGE5 AI in Finance"
+type: software
+license: MIT
+repository-code: "https://github.com/jeandirel/securefinai-openclaw-agent"
+url: "https://github.com/jeandirel/securefinai-openclaw-agent"
+keywords:
+  - "AI in Finance"
+  - "LLM agents"
+  - "paper trading"
+  - "risk management"
+  - "Alpaca"
+  - "SecureFinAI"
+  - "OpenClaw"
+version: "0.1.0"
+date-released: "2026-04-26"

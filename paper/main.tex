@@ -1,0 +1,105 @@
+\documentclass{article}
+
+\usepackage[preprint]{neurips_2024}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{nicefrac}
+\usepackage{microtype}
+\usepackage{xcolor}
+\usepackage{graphicx}
+
+\title{OpenClaw-Agent: A Risk-Aware LLM-Assisted Trading Agent for Secure Financial AI}
+
+\author{%
+  Jean Direl \\
+  PGE5 -- AI in Finance, Aivancity \\
+  \texttt{jean.direl@aivancity.education} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We present \textbf{OpenClaw-Agent}, a risk-aware, LLM-assisted paper-trading agent designed in the context of the Aivancity PGE5 ``AI in Finance'' term paper and inspired by the SecureFinAI Contest 2026, Task V (OpenClaw / Alpaca). The agent combines a deterministic technical-signal layer (EMA crossover, RSI, momentum), an optional Large Language Model (LLM) ``decision filter'' that can veto risky trades, and an explicit risk-management layer enforcing per-position caps, gross-exposure limits, stop-loss and take-profit thresholds. All decisions are persisted in structured logs (equity curve, orders, signals, LLM rationales) on top of the Alpaca paper-trading API to ensure reproducibility and post-hoc auditability. This paper documents the system design, the experimental protocol, and an honest report of the current empirical status: at the time of submission, the agent runs in paper-trading mode and large-scale empirical results are still being collected. We therefore report the protocol, the metrics that will be computed, and the safety / ethical considerations, rather than fabricated numerical outcomes.
+\end{abstract}
+
+\section{Introduction}
+The recent wave of LLM-based agents has motivated their use as decision-makers in high-stakes domains such as algorithmic trading. Pure LLM trading agents, however, suffer from hallucinations, look-ahead leakage, and unstable reasoning under distribution shift. Conversely, purely rule-based technical strategies are brittle in regime changes and lack the contextual reasoning that LLMs provide. \textbf{OpenClaw-Agent} explores a middle ground: a deterministic signal core, an LLM ``review'' filter that can only \emph{veto or confirm} a candidate order, and an enforced risk envelope. The system targets crypto paper-trading on Alpaca, which is open 24/7 and free of survivorship bias, making it a convenient benchmark for academic experimentation.
+
+The contribution of this term paper is threefold:
+(i) an open-source reference implementation of a risk-aware, LLM-assisted paper-trading agent built on Alpaca;
+(ii) an experimental protocol aligned with SecureFinAI Contest 2026, Task V (OpenClaw / Alpaca), including the metrics to be reported and the logging format required for reproducibility;
+(iii) an explicit ``honest reporting'' policy: when ground-truth metrics are not yet available, the paper reports them as \texttt{null} rather than fabricating values.
+
+\section{Related Work}
+Recent work has explored LLM-based and reinforcement-learning agents for finance.
+FinRL-DeepSeek \cite{finrl_deepseek} integrates an LLM into a deep RL trading pipeline.
+Agentic RL has also been applied to liquidity provisioning on Uniswap \cite{uniswap_rl}.
+Look-Ahead-Bench \cite{lookaheadbench} highlights the look-ahead bias risk when LLMs are evaluated on financial time series.
+Forecasting-style benchmarks such as VCBench \cite{vcbench}, YCBench \cite{ycbench}, and FutureX \cite{futurex} probe the predictive abilities of frontier models, while \cite{scaling_open_ended} studies open-ended reasoning for future prediction.
+Our work is positioned within the SecureFinAI Contest 2026 \cite{securefinai2026}, Task V (OpenClaw / Alpaca), and uses the Alpaca paper-trading API \cite{alpaca_api} as the execution environment.
+
+\section{Problem Formulation}
+We model trading as a discrete-time decision process over a small crypto universe $\mathcal{U} = \{$BTC/USD, ETH/USD, SOL/USD$\}$. At each decision step $t$ (every $\Delta_t$ minutes, e.g., 30 minutes), the agent observes the recent $L$ bars of OHLCV data $X_t \in \mathbb{R}^{L \times 5}$, the current portfolio state $P_t$ (cash, positions, equity), and produces an action $a_t \in \{\text{buy}, \text{sell}, \text{hold}\}$ together with a sized quantity $q_t$. The objective is risk-adjusted return subject to hard constraints on per-position weight, gross exposure, stop-loss, and take-profit. Crucially, no real capital is at stake: all execution happens in Alpaca paper trading, and results are evaluated only on logged paper executions.
+
+\section{Methodology}
+
+\subsection{System Architecture}
+OpenClaw-Agent is implemented as a Python package with five clearly separated modules: \texttt{alpaca\_client.py} (broker abstraction), \texttt{signals.py} (technical indicators), \texttt{strategy.py} (sizing and decision aggregation), \texttt{llm.py} (optional LLM review), and \texttt{logger.py} (structured logging of equity, orders, and rationales). A main loop in \texttt{agent/main.py} runs at a configurable interval and is deployable on a long-running container.
+
+\subsection{Technical Signal Layer}
+The signal layer computes three indicators on the closing-price series: an EMA(12)/EMA(26) crossover, RSI(14), and a momentum term over $N=20$ bars. These are aggregated into a single bounded score $s \in [-1, 1]$ together with a categorical action and a human-readable reason. The signal layer is deterministic, depends only on past data, and can be unit-tested independently of any LLM.
+
+\subsection{LLM Decision Filter}
+When an LLM provider is configured, candidate orders are forwarded to the LLM with a compact JSON-only prompt summarizing recent statistics (last price, 1h return, 24h return, 24h realized volatility) and the proposed action. The LLM is instructed to return a Boolean \emph{approval} flag and a short rationale. The LLM is \emph{never} allowed to inflate exposure, change the symbol, or originate trades that the rules layer did not propose; it can only veto or confirm. This conservative coupling reduces the risk of hallucinated trades.
+
+\subsection{Risk Management Layer}
+Independently of the signal score and the LLM decision, the risk layer enforces:
+per-position weight $\leq$ \texttt{MAX\_POSITION\_PCT};
+gross exposure $\leq$ \texttt{MAX\_GROSS\_EXPOSURE\_PCT};
+stop-loss at \texttt{STOP\_LOSS\_PCT};
+take-profit at \texttt{TAKE\_PROFIT\_PCT}.
+Any order that violates any constraint is rejected before submission. The risk layer is the last line of defense and is enforced regardless of the LLM verdict.
+
+\subsection{Logging and Reproducibility}
+Every cycle persists: an equity / cash snapshot, the signal output, the LLM verdict (when applicable), and the final order. Logs are written as line-delimited JSON to \texttt{logs/}, never committed to the repository, and are sufficient to recompute all metrics offline. The configuration is fully driven by environment variables, documented in \texttt{.env.example}, so that a third party can reproduce a run without modifying source code.
+
+\section{Experimental Protocol}
+We follow the spirit of SecureFinAI Contest 2026, Task V (OpenClaw / Alpaca):
+the agent is deployed in Alpaca paper trading with the universe $\mathcal{U}$;
+the decision interval is $\Delta_t = 30$ minutes on 15-minute bars with $L=200$;
+the evaluation window is the duration of the term-paper experiment;
+the reported metrics are: cumulative return, Sharpe ratio, maximum drawdown, realized volatility, LLM veto rate, and decision consistency.
+Ablations are planned over: (a) rules-only vs.\ rules+LLM, (b) two LLM providers (OpenAI vs.\ Anthropic), and (c) two risk envelopes (conservative vs.\ aggressive).
+
+\section{Experimental Plan or Results}
+At the time of submission of this draft, the paper-trading run has not yet accumulated a sufficiently long log to report statistically meaningful results. We therefore explicitly leave numerical metrics as \texttt{null} in \texttt{results/metrics\_template.json} and refrain from reporting fabricated outcomes. Once the live paper-trading log is long enough, the same metrics will be computed from the actual Alpaca paper logs and inserted in this section in a future revision. This honest-reporting policy is a deliberate design choice and is consistent with the reproducibility expectations of NeurIPS-style venues.
+
+\section{Discussion}
+The architecture deliberately keeps the LLM in a \emph{review-only} role. This addresses two failure modes commonly observed in pure-LLM trading agents: (i) hallucinated tickers / sizes, and (ii) unstable behavior under prompt drift. By making the rule-based signal layer the only source of trade origination, the system remains analyzable and the LLM can only \emph{decrease} risk. A potential limitation is that this design also caps the upside that a strong LLM could provide; we view this trade-off as appropriate for a risk-aware academic prototype.
+
+\section{Limitations}
+The agent operates exclusively in paper trading; transaction costs, slippage, and order-book impact are simplified by the Alpaca paper environment. The crypto universe is small and may not generalize to equity or FX markets without adaptation. The LLM filter is sensitive to prompt wording and provider availability. Finally, the empirical section is limited to whatever paper-trading log is available at the time of evaluation.
+
+\section{Ethical Considerations}
+This project does not provide financial advice and must not be used with real capital. All trading is performed in Alpaca \emph{paper} mode. No personal data is collected. API keys are kept exclusively in the user's local \texttt{.env} file and are explicitly excluded from the repository via \texttt{.gitignore}. The LLM filter is used in a constrained, advisory role and cannot, by construction, originate trades. The work follows the SecureFinAI Contest 2026 academic-use guidelines.
+
+\section{Conclusion}
+OpenClaw-Agent is a small, auditable, risk-aware paper-trading agent that uses an LLM only as a veto layer on top of deterministic technical signals. The repository, the experimental protocol, and this paper are released openly to support reproducibility and to make explicit what has and has not been measured at submission time. We hope this honest-reporting template is useful for other AI-in-Finance term papers.
+
+\section*{Appendix}
+\paragraph{Repository.} \url{https://github.com/jeandirel/securefinai-openclaw-agent}
+\paragraph{Configuration.} See \texttt{.env.example} for the full list of environment variables (universe, decision interval, risk parameters, optional LLM provider).
+\paragraph{Reproducibility.} See \texttt{README.md} for installation and run instructions, and \texttt{results/metrics\_template.json} for the metrics schema.
+
+\bibliographystyle{plain}
+\bibliography{references}
+
+\end{document}
