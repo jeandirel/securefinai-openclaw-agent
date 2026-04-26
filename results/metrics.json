@@ -1,0 +1,48 @@
+{
+  "config": {
+    "T_min": 500,
+    "delta_md": 0.02,
+    "delta_cr": 0.01,
+    "n_bootstrap": 10000,
+    "alpha_fdr": 0.1,
+    "decision_interval_min": 5,
+    "trading_days_per_year": 365
+  },
+  "cells": [
+    {
+      "label": "B3",
+      "n_cycles": 8,
+      "sufficient": false,
+      "cumulative_return": 0.0,
+      "sharpe_ratio": null,
+      "sharpe_ci95": null,
+      "max_drawdown": -0.0,
+      "max_drawdown_ci95": null,
+      "daily_volatility": 0.0,
+      "annualised_volatility": 0.0
+    },
+    {
+      "label": "B3_LLM",
+      "n_cycles": 9,
+      "sufficient": false,
+      "cumulative_return": 0.0,
+      "sharpe_ratio": null,
+      "sharpe_ci95": null,
+      "max_drawdown": -0.0,
+      "max_drawdown_ci95": null,
+      "daily_volatility": 0.0,
+      "annualised_volatility": 0.0
+    }
+  ],
+  "h1": {
+    "tested": false,
+    "md_diff_b3_minus_treatment": null,
+    "md_diff_ci95": null,
+    "cr_diff_treatment_minus_b3": null,
+    "cr_diff_ci95": null,
+    "drawdown_pass": null,
+    "return_pass": null,
+    "h1_supported": null,
+    "note": "insufficient data: at least one of B3 or B3+LLM has < T_MIN cycles"
+  }
+}

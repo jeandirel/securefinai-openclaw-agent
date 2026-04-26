@@ -59,8 +59,8 @@ DELTA_MD: float = 0.02     # 2 percentage points -- H1 drawdown reduction
 DELTA_CR: float = 0.01     # 1 percentage point  -- H1 max return cost
 N_BOOTSTRAP: int = 10_000  # bootstrap iterations
 ALPHA_FDR: float = 0.10    # Benjamini-Hochberg FDR
-DECISION_INTERVAL_MIN: int = 30
-CYCLES_PER_DAY: float = (24 * 60) / DECISION_INTERVAL_MIN  # = 48
+DECISION_INTERVAL_MIN: int = 5
+CYCLES_PER_DAY: float = (24 * 60) / DECISION_INTERVAL_MIN  # = 288
 TRADING_DAYS_PER_YEAR: int = 365  # crypto = 365 (24/7)
 
 
@@ -81,6 +81,9 @@ class CellMetrics:
 
     def to_dict(self) -> dict:
         d = asdict(self)
+        for k, v in list(d.items()):
+            if isinstance(v, float) and not math.isfinite(v):
+                d[k] = None
         # tuple -> list for JSON
         for k in ("sharpe_ci95", "max_drawdown_ci95"):
             if d[k] is not None:
@@ -187,9 +190,6 @@ def compute_cell_metrics(label: str, equity_csv: Path) -> CellMetrics:
     equity = df["equity"].to_numpy(dtype=float)
     n_cycles = len(equity)
 
-    if n_cycles < T_MIN:
-        return CellMetrics(label=label, n_cycles=n_cycles, sufficient=False)
-
     returns = _equity_to_returns(equity)
     periods_per_year = CYCLES_PER_DAY * TRADING_DAYS_PER_YEAR
 
@@ -199,17 +199,20 @@ def compute_cell_metrics(label: str, equity_csv: Path) -> CellMetrics:
     dv = daily_volatility(returns)
     av = annualised_volatility(returns)
 
+    # Point estimates are useful for progress monitoring before T_MIN.
+    # Bootstrap CIs and H1 remain gated by T_MIN to avoid overclaiming.
+    sufficient = n_cycles >= T_MIN
     sr_ci = _bootstrap_ci(
         returns, lambda r: sharpe_ratio(r, periods_per_year)
-    )
+    ) if sufficient else None
     md_ci = _bootstrap_ci(
         equity, lambda e: max_drawdown(e)
-    )
+    ) if sufficient else None
 
     return CellMetrics(
         label=label,
         n_cycles=n_cycles,
-        sufficient=True,
+        sufficient=sufficient,
         cumulative_return=cr,
         sharpe_ratio=sr,
         sharpe_ci95=sr_ci,

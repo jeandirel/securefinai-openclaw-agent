@@ -1,0 +1,77 @@
+﻿{
+    "timestamp_utc":  "2026-04-26T18:28:05Z",
+    "source":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\logs",
+    "destination":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\results\\logs_snapshot",
+    "files":  [
+                  {
+                      "path":  "B3\\agent.log",
+                      "bytes":  4461,
+                      "last_write_time":  "2026-04-26T18:24:16Z"
+                  },
+                  {
+                      "path":  "B3\\equity.csv",
+                      "bytes":  303,
+                      "last_write_time":  "2026-04-26T18:24:15Z"
+                  },
+                  {
+                      "path":  "B3\\pid.txt",
+                      "bytes":  7,
+                      "last_write_time":  "2026-04-26T18:24:13Z"
+                  },
+                  {
+                      "path":  "B3\\runner.log",
+                      "bytes":  1218,
+                      "last_write_time":  "2026-04-26T18:24:13Z"
+                  },
+                  {
+                      "path":  "B3\\stderr.log",
+                      "bytes":  0,
+                      "last_write_time":  "2026-04-26T18:02:10Z"
+                  },
+                  {
+                      "path":  "B3\\stdout.log",
+                      "bytes":  7586,
+                      "last_write_time":  "2026-04-26T18:24:16Z"
+                  },
+                  {
+                      "path":  "B3_LLM\\agent.log",
+                      "bytes":  5018,
+                      "last_write_time":  "2026-04-26T18:24:43Z"
+                  },
+                  {
+                      "path":  "B3_LLM\\equity.csv",
+                      "bytes":  343,
+                      "last_write_time":  "2026-04-26T18:24:42Z"
+                  },
+                  {
+                      "path":  "B3_LLM\\pid.txt",
+                      "bytes":  7,
+                      "last_write_time":  "2026-04-26T18:24:39Z"
+                  },
+                  {
+                      "path":  "B3_LLM\\runner.log",
+                      "bytes":  482,
+                      "last_write_time":  "2026-04-26T18:24:40Z"
+                  },
+                  {
+                      "path":  "B3_LLM\\stderr.log",
+                      "bytes":  0,
+                      "last_write_time":  "2026-04-26T18:02:06Z"
+                  },
+                  {
+                      "path":  "B3_LLM\\stdout.log",
+                      "bytes":  6292,
+                      "last_write_time":  "2026-04-26T18:24:43Z"
+                  },
+                  {
+                      "path":  "metrics\\autosave.log",
+                      "bytes":  954,
+                      "last_write_time":  "2026-04-26T18:25:00Z"
+                  },
+                  {
+                      "path":  "metrics\\pid.txt",
+                      "bytes":  6,
+                      "last_write_time":  "2026-04-26T18:24:59Z"
+                  }
+              ]
+}

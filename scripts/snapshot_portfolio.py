@@ -14,35 +14,35 @@ from agent.config import CONFIG
 
 
 def main() -> int:
-      broker = AlpacaBroker()
-      acc = broker.trading.get_account()
-      positions = broker.trading.get_all_positions()
+    broker = AlpacaBroker()
+    acc = broker.trading.get_account()
+    positions = broker.trading.get_all_positions()
 
     snapshot = {
-              "timestamp": datetime.now(tz=timezone.utc).isoformat(),
-              "market": CONFIG.market,
-              "equity": float(acc.equity),
-              "cash": float(acc.cash),
-              "buying_power": float(acc.buying_power),
-              "last_equity": float(acc.last_equity),
-              "positions": [
-                            {
-                                              "symbol": p.symbol,
-                                              "qty": float(p.qty),
-                                              "avg_entry_price": float(p.avg_entry_price),
-                                              "current_price": float(p.current_price),
-                                              "market_value": float(p.market_value),
-                                              "unrealized_pl": float(p.unrealized_pl),
-                                              "unrealized_plpc": float(p.unrealized_plpc),
-                            }
-                            for p in positions
-              ],
+        "timestamp": datetime.now(tz=timezone.utc).isoformat(),
+        "market": CONFIG.market,
+        "equity": float(acc.equity),
+        "cash": float(acc.cash),
+        "buying_power": float(acc.buying_power),
+        "last_equity": float(acc.last_equity),
+        "positions": [
+            {
+                "symbol": p.symbol,
+                "qty": float(p.qty),
+                "avg_entry_price": float(p.avg_entry_price),
+                "current_price": float(p.current_price),
+                "market_value": float(p.market_value),
+                "unrealized_pl": float(p.unrealized_pl),
+                "unrealized_plpc": float(p.unrealized_plpc),
+            }
+            for p in positions
+        ],
     }
 
     out = Path("logs/portfolio_snapshot.json")
     out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
-              json.dump(snapshot, f, indent=2)
+        json.dump(snapshot, f, indent=2)
 
     print(f"Snapshot written to {out}")
     print(json.dumps(snapshot, indent=2))
@@ -50,5 +50,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-      raise SystemExit(main())
-  
+    raise SystemExit(main())
