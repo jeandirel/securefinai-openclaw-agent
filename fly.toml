@@ -1,0 +1,62 @@
+# Fly.io configuration for OpenClaw-Agent (B3+LLM treatment arm).
+#
+# Fly.io free tier (as of 2026-04): up to 3 always-on shared-cpu-1x@256MB
+# machines. The agent fits comfortably in 256 MB. We DISABLE auto_stop_machines
+# so the worker keeps running across the full 10-11 day window required by
+# the H1 evaluation protocol.
+#
+# How to use:
+#   1. Install flyctl:        https://fly.io/docs/hands-on/install-flyctl/
+#   2. fly auth signup        (or fly auth login)
+#   3. fly launch --no-deploy --copy-config --name openclaw-agent-b3-llm
+#   4. fly secrets set \
+#        ALPACA_API_KEY=...   ALPACA_SECRET_KEY=...   ANTHROPIC_API_KEY=...
+#   5. fly deploy
+#   6. fly logs -a openclaw-agent-b3-llm
+#
+# To run the B3 baseline in parallel, copy this file to fly.b3.toml,
+# change the app name to openclaw-agent-b3, set LLM_PROVIDER="" and omit
+# ANTHROPIC_API_KEY, and use a SECOND Alpaca paper account.
+
+app = "openclaw-agent-b3-llm"
+primary_region = "cdg"  # Paris -- closest to Aivancity. Change if needed.
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  ALPACA_BASE_URL          = "https://paper-api.alpaca.markets"
+  MARKET                   = "crypto"
+  CRYPTO_UNIVERSE          = "BTC/USD,ETH/USD,SOL/USD"
+  DECISION_INTERVAL_MIN    = "30"
+  LOOKBACK_BARS            = "200"
+  BAR_TIMEFRAME            = "15Min"
+  MAX_POSITION_PCT         = "0.25"
+  STOP_LOSS_PCT            = "0.03"
+  TAKE_PROFIT_PCT          = "0.06"
+  MAX_GROSS_EXPOSURE_PCT   = "0.9"
+  LLM_PROVIDER             = "anthropic"
+  ANTHROPIC_MODEL          = "claude-3-5-haiku-latest"
+  ABLATION_LABEL           = "B3_LLM"
+  PYTHONUNBUFFERED         = "1"
+
+# No HTTP service: this is a pure background worker.
+# Disable auto-stop so Fly does not idle the machine.
+[[vm]]
+  size                  = "shared-cpu-1x"
+  memory                = "256mb"
+  cpus                  = 1
+  cpu_kind              = "shared"
+
+[deploy]
+  strategy = "immediate"
+
+# Fly v2 process model -- single worker process.
+[processes]
+  worker = "python -m agent.main"
+
+# Optional: persistent volume for logs across restarts.
+# Uncomment after running: fly volumes create openclaw_logs --size 1
+# [mounts]
+#   source = "openclaw_logs"
+#   destination = "/app/logs"

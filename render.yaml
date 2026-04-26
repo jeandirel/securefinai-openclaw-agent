@@ -1,0 +1,112 @@
+# Render Blueprint -- two background workers running OpenClaw-Agent
+# in parallel: one rules+risk only (B3, control), one rules+risk+LLM (treatment).
+# Both consume the same repo; they differ only by environment variables.
+#
+# How to use:
+#   1. Push this file to main.
+#   2. https://render.com -> New -> Blueprint -> select this repo.
+#   3. Render reads render.yaml, creates two services.
+#   4. For each service, open Environment and fill in your real keys.
+#      DO NOT commit real keys. The values below are placeholders only.
+#
+# Free tier: each Background Worker uses ~512 MB RAM and is always-on.
+# At the time of writing, Render free workers spin down after 90 days
+# of inactivity but stay alive while running. Paid plan starts at $7/mo.
+#
+# IMPORTANT: each worker writes to its own ephemeral filesystem.
+# Use Render Persistent Disks ($1/mo per 10 GB) if you want logs to
+# survive restarts, or stream the JSONL to an external store.
+
+services:
+  # ---------------------------------------------------------------
+  # B3 baseline: rules + risk envelope, NO LLM veto
+  # This is the control arm of hypothesis H1.
+  # ---------------------------------------------------------------
+  - type: worker
+    name: openclaw-agent-b3
+    runtime: docker
+    plan: free
+    repo: https://github.com/jeandirel/securefinai-openclaw-agent
+    branch: main
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: ALPACA_API_KEY
+        sync: false  # set in dashboard, account A (B3 baseline)
+      - key: ALPACA_SECRET_KEY
+        sync: false  # set in dashboard, account A
+      - key: ALPACA_BASE_URL
+        value: https://paper-api.alpaca.markets
+      - key: MARKET
+        value: crypto
+      - key: CRYPTO_UNIVERSE
+        value: BTC/USD,ETH/USD,SOL/USD
+      - key: DECISION_INTERVAL_MIN
+        value: "30"
+      - key: LOOKBACK_BARS
+        value: "200"
+      - key: BAR_TIMEFRAME
+        value: 15Min
+      - key: MAX_POSITION_PCT
+        value: "0.25"
+      - key: STOP_LOSS_PCT
+        value: "0.03"
+      - key: TAKE_PROFIT_PCT
+        value: "0.06"
+      - key: MAX_GROSS_EXPOSURE_PCT
+        value: "0.9"
+      # LLM_PROVIDER intentionally empty -- this is the rules-only baseline
+      - key: LLM_PROVIDER
+        value: ""
+      - key: ABLATION_LABEL
+        value: B3
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+  # ---------------------------------------------------------------
+  # B3 + LLM veto: rules + LLM + risk envelope
+  # This is the treatment arm of hypothesis H1.
+  # ---------------------------------------------------------------
+  - type: worker
+    name: openclaw-agent-b3-llm
+    runtime: docker
+    plan: free
+    repo: https://github.com/jeandirel/securefinai-openclaw-agent
+    branch: main
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: ALPACA_API_KEY
+        sync: false  # set in dashboard, account B (B3+LLM treatment, DIFFERENT account)
+      - key: ALPACA_SECRET_KEY
+        sync: false  # set in dashboard, account B
+      - key: ALPACA_BASE_URL
+        value: https://paper-api.alpaca.markets
+      - key: MARKET
+        value: crypto
+      - key: CRYPTO_UNIVERSE
+        value: BTC/USD,ETH/USD,SOL/USD
+      - key: DECISION_INTERVAL_MIN
+        value: "30"
+      - key: LOOKBACK_BARS
+        value: "200"
+      - key: BAR_TIMEFRAME
+        value: 15Min
+      - key: MAX_POSITION_PCT
+        value: "0.25"
+      - key: STOP_LOSS_PCT
+        value: "0.03"
+      - key: TAKE_PROFIT_PCT
+        value: "0.06"
+      - key: MAX_GROSS_EXPOSURE_PCT
+        value: "0.9"
+      - key: LLM_PROVIDER
+        value: anthropic
+      - key: ANTHROPIC_API_KEY
+        sync: false  # set in dashboard
+      - key: ANTHROPIC_MODEL
+        value: claude-3-5-haiku-latest
+      - key: ABLATION_LABEL
+        value: B3_LLM
+      - key: PYTHONUNBUFFERED
+        value: "1"
