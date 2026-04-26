@@ -173,11 +173,10 @@ def _bootstrap_ci(
 # Cell-level computation
 # ---------------------------------------------------------------------------
 
-def compute_cell_metrics(label: str, equity_csv: Path) -> CellMetrics:
-    """Read an equity CSV and produce a CellMetrics record.
-
-    Expected CSV columns (case-insensitive, extras tolerated):
-        timestamp, equity
+def _load_equity(equity_csv: Path, start_from: Optional[str] = None) -> pd.DataFrame:
+    """Load an equity CSV, optionally dropping rows whose timestamp is before
+    `start_from` (ISO-8601 string, lexicographic comparison; suitable for
+    UTC `Z` timestamps as written by the agent's logger).
     """
     df = pd.read_csv(equity_csv)
     df.columns = [c.strip().lower() for c in df.columns]
@@ -187,6 +186,31 @@ def compute_cell_metrics(label: str, equity_csv: Path) -> CellMetrics:
         )
     if "timestamp" in df.columns:
         df = df.sort_values("timestamp").reset_index(drop=True)
+        if start_from:
+            before = len(df)
+            df = df[df["timestamp"] >= start_from].reset_index(drop=True)
+            dropped = before - len(df)
+            if dropped:
+                print(
+                    f"  [filter] {equity_csv.name}: dropped {dropped} pre-fix rows "
+                    f"(timestamp < {start_from})"
+                )
+    elif start_from:
+        raise ValueError(
+            f"{equity_csv}: --start-from requested but no 'timestamp' column found"
+        )
+    return df
+
+
+def compute_cell_metrics(
+    label: str, equity_csv: Path, start_from: Optional[str] = None
+) -> CellMetrics:
+    """Read an equity CSV and produce a CellMetrics record.
+
+    Expected CSV columns (case-insensitive, extras tolerated):
+        timestamp, equity
+    """
+    df = _load_equity(equity_csv, start_from=start_from)
     equity = df["equity"].to_numpy(dtype=float)
     n_cycles = len(equity)
 
@@ -437,6 +461,21 @@ def _parse_equity_csv_arg(value: str) -> Tuple[str, Path]:
     return (label, path)
 
 
+def _parse_start_from_arg(value: str) -> Tuple[str, str]:
+    if "=" not in value:
+        raise argparse.ArgumentTypeError(
+            f"--start-from must be LABEL=ISO_TIMESTAMP, got {value!r}"
+        )
+    label, ts = value.split("=", 1)
+    label = label.strip()
+    ts = ts.strip()
+    if not label or not ts:
+        raise argparse.ArgumentTypeError(
+            f"--start-from needs both a label and a timestamp, got {value!r}"
+        )
+    return (label, ts)
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument(
@@ -445,6 +484,18 @@ def main(argv: Optional[List[str]] = None) -> int:
         required=True,
         type=_parse_equity_csv_arg,
         help="LABEL=path/to/equity.csv (repeat per cell). Required labels for H1: B3 and B3_LLM.",
+    )
+    parser.add_argument(
+        "--start-from",
+        action="append",
+        default=[],
+        type=_parse_start_from_arg,
+        help=(
+            "LABEL=ISO_TIMESTAMP (repeatable). Drop rows from that cell whose "
+            "timestamp is strictly earlier than the given ISO-8601 string. Use "
+            "this to exclude pre-fix data, e.g. when a cell was running with a "
+            "miscofigured LLM provider."
+        ),
     )
     parser.add_argument(
         "--out-json", default="results/metrics.json",
@@ -457,20 +508,29 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     inputs: Dict[str, Path] = dict(args.equity_csv)
-    cells = [compute_cell_metrics(label, path) for label, path in inputs.items()]
+    start_from: Dict[str, str] = dict(args.start_from)
+
+    unknown = set(start_from) - set(inputs)
+    if unknown:
+        parser.error(
+            f"--start-from refers to unknown label(s) {sorted(unknown)}; "
+            f"expected one of {sorted(inputs)}"
+        )
+
+    cells = [
+        compute_cell_metrics(label, path, start_from=start_from.get(label))
+        for label, path in inputs.items()
+    ]
 
     # H1 only if both required cells are present
     h1: Optional[H1Result] = None
     if "B3" in inputs and "B3_LLM" in inputs:
-        b3_eq = pd.read_csv(inputs["B3"])
-        b3_eq.columns = [c.strip().lower() for c in b3_eq.columns]
-        tr_eq = pd.read_csv(inputs["B3_LLM"])
-        tr_eq.columns = [c.strip().lower() for c in tr_eq.columns]
-        if "equity" in b3_eq.columns and "equity" in tr_eq.columns:
-            h1 = test_h1(
-                b3_eq["equity"].to_numpy(dtype=float),
-                tr_eq["equity"].to_numpy(dtype=float),
-            )
+        b3_eq = _load_equity(inputs["B3"], start_from=start_from.get("B3"))
+        tr_eq = _load_equity(inputs["B3_LLM"], start_from=start_from.get("B3_LLM"))
+        h1 = test_h1(
+            b3_eq["equity"].to_numpy(dtype=float),
+            tr_eq["equity"].to_numpy(dtype=float),
+        )
 
     out_json = Path(args.out_json)
     out_md = Path(args.out_md)

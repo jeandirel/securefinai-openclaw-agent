@@ -86,25 +86,43 @@ def _call_groq(prompt: str) -> str:
     return resp.choices[0].message.content or "{}"
 
 
+_PROVIDER_KEYS = {
+    "openai": "openai_api_key",
+    "anthropic": "anthropic_api_key",
+    "groq": "groq_api_key",
+}
+
+
 def review(symbol: str, signal: SignalResult, stats: dict) -> Optional[LLMDecision]:
     provider = CONFIG.llm_provider
     if not provider:
         return None
+    if provider not in _PROVIDER_KEYS:
+        raise ValueError(
+            f"LLM_PROVIDER='{provider}' is not supported. "
+            f"Expected one of {sorted(_PROVIDER_KEYS)}."
+        )
+    key = getattr(CONFIG, _PROVIDER_KEYS[provider], None)
+    if not key:
+        env_var = _PROVIDER_KEYS[provider].upper()
+        raise RuntimeError(
+            f"LLM_PROVIDER='{provider}' is configured but {env_var} is empty or "
+            "missing in the runner's environment. Refusing to silently auto-approve."
+        )
     try:
         prompt = _prompt(symbol, signal, stats)
         if provider == "openai":
             raw = _call_openai(prompt)
         elif provider == "anthropic":
             raw = _call_anthropic(prompt)
-        elif provider == "groq":
+        else:  # provider == "groq"
             raw = _call_groq(prompt)
-        else:
-            return None
         data = json.loads(raw)
         return LLMDecision(
             approve=bool(data.get("approve", False)),
             rationale=str(data.get("rationale", ""))[:500],
         )
+    except (RuntimeError, ValueError):
+        raise
     except Exception as e:
-        # LLM layer must never crash the agent
         return LLMDecision(approve=True, rationale=f"LLM error, defaulting to approve: {e}")

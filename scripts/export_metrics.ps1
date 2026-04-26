@@ -1,6 +1,7 @@
 param(
     [string]$OutJson = "results/metrics.json",
-    [string]$OutMd = "results/h1_table.md"
+    [string]$OutMd = "results/h1_table.md",
+    [string]$B3LlmStartFrom = "2026-04-26T19:52:54Z"
 )
 
 Set-StrictMode -Version Latest
@@ -24,10 +25,19 @@ if (-not (Test-Path -LiteralPath $B3LlmEquity)) {
 }
 
 Set-Location -LiteralPath $RepoRoot
-& $Python scripts/h1_test.py `
-    --equity-csv "B3=logs/B3/equity.csv" `
-    --equity-csv "B3_LLM=logs/B3_LLM/equity.csv" `
-    --out-json $OutJson `
-    --out-md $OutMd
+
+$h1Args = @(
+    "scripts/h1_test.py",
+    "--equity-csv", "B3=logs/B3/equity.csv",
+    "--equity-csv", "B3_LLM=logs/B3_LLM/equity.csv",
+    "--out-json", $OutJson,
+    "--out-md", $OutMd
+)
+if ($B3LlmStartFrom) {
+    $h1Args += "--start-from"
+    $h1Args += "B3_LLM=$B3LlmStartFrom"
+}
+
+& $Python @h1Args
 
 exit $LASTEXITCODE

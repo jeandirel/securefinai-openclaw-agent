@@ -11,27 +11,27 @@
   "cells": [
     {
       "label": "B3",
-      "n_cycles": 8,
+      "n_cycles": 28,
       "sufficient": false,
-      "cumulative_return": 0.0,
-      "sharpe_ratio": null,
+      "cumulative_return": 2.5900000000023127e-05,
+      "sharpe_ratio": 0.8925584993333867,
       "sharpe_ci95": null,
-      "max_drawdown": -0.0,
+      "max_drawdown": 0.0011035000000000582,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.0,
-      "annualised_volatility": 0.0
+      "daily_volatility": 0.006325725212405617,
+      "annualised_volatility": 0.12085281049253839
     },
     {
       "label": "B3_LLM",
-      "n_cycles": 9,
+      "n_cycles": 4,
       "sufficient": false,
-      "cumulative_return": 0.0,
-      "sharpe_ratio": null,
+      "cumulative_return": 0.0002507509525937479,
+      "sharpe_ratio": 209.94200877384873,
       "sharpe_ci95": null,
       "max_drawdown": -0.0,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.0,
-      "annualised_volatility": 0.0
+      "daily_volatility": 0.002190551495886349,
+      "annualised_volatility": 0.041850427566363306
     }
   ],
   "h1": {

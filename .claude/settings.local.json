@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tasklist //FI \"IMAGENAME eq python.exe\")",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"Name='python.exe'\")",
+      "Bash(grep -vE \"^#|^$|^[A-Z_]+=\" .env.B3_LLM)",
+      "PowerShell($envBlock = Get-Process -Id 3876 | ForEach-Object { try { \\(Get-CimInstance Win32_Process -Filter \"ProcessId=$\\($_.Id\\)\"\\).CommandLine } catch { $null } } ; \"CommandLine: $envBlock\" ; $hasGroq = \\(Get-Content -LiteralPath \".env.B3_LLM\" | Where-Object { $_ -match '^GROQ_API_KEY=' }\\) -ne $null ; \"GROQ_API_KEY present in .env.B3_LLM: $hasGroq\")",
+      "PowerShell(Get-CimInstance Win32_Process -Filter \"ProcessId=28828\")",
+      "Bash(taskkill //T //F //PID 28828)",
+      "PowerShell(Start-Process -FilePath \"powershell.exe\" -ArgumentList @\\('-NoProfile','-ExecutionPolicy','Bypass','-File','.\\\\scripts\\\\run_cell_10d.ps1','B3_LLM','-Days','9'\\) -WindowStyle Hidden -PassThru | Select-Object Id, StartTime)",
+      "PowerShell(Start-Sleep -Seconds 4 ; Get-CimInstance Win32_Process -Filter \"Name='powershell.exe' OR Name='python.exe'\" | Where-Object { $_.CommandLine -match 'B3_LLM|agent\\\\.main' } | Select-Object ProcessId, ParentProcessId, Name, CommandLine | Format-Table -AutoSize -Wrap)",
+      "Bash(taskkill //T //F //PID 16312)",
+      "Bash(.venv/Scripts/python.exe -c ' *)"
+    ]
+  }
+}
