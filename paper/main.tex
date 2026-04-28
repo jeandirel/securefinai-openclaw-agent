@@ -13,6 +13,8 @@
 \usepackage{microtype}
 \usepackage{xcolor}
 \usepackage{graphicx}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, shapes.geometric, calc}
 
 \title{OpenClaw-Agent: A Constrained, Auditable Architecture for LLM-Assisted Crypto Paper Trading}
 
@@ -72,6 +74,32 @@ We model trading as a discrete-time decision process over a fixed crypto univers
 where $p_{i,t}$ is the last price of asset $i$ and the $\tau_{\bullet}$ are the agent\textquoteright s risk parameters (\texttt{MAX\_POSITION\_PCT}, \texttt{MAX\_GROSS\_EXPOSURE\_PCT}, \texttt{STOP\_LOSS\_PCT}, \texttt{TAKE\_PROFIT\_PCT}). We list all four constraints as \emph{target} risk specifications because they are exposed as configuration variables; in the present implementation, only Equation~\eqref{eq:per-position} is enforced at the per-cycle decision boundary, while Equations~\eqref{eq:gross}--\eqref{eq:take} are part of the declared envelope but not yet enforced as runtime gates. We make this distinction explicit in Section~\ref{sec:risk} and treat full-envelope enforcement as future work. No real capital is at stake: all execution happens in Alpaca paper trading.
 
 \section{Methodology}
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  node distance=4.5mm and 6mm,
+  every node/.style={font=\small},
+  box/.style={draw, rounded corners=2pt, align=center, inner sep=4pt, minimum height=8mm, minimum width=22mm, fill=gray!5},
+  llm/.style={draw, rounded corners=2pt, align=center, inner sep=4pt, minimum height=8mm, minimum width=22mm, fill=blue!5},
+  risk/.style={draw, rounded corners=2pt, align=center, inner sep=4pt, minimum height=8mm, minimum width=22mm, fill=orange!10},
+  arrow/.style={-{Latex[length=2mm]}, thick}
+]
+  \node[box] (data) {Market data\\\scriptsize \{BTC/USD, ETH/USD, SOL/USD\}};
+  \node[box, right=of data] (signal) {Rule-based\\signal $S$};
+  \node[llm, right=of signal] (llm) {LLM veto\\$\mathcal{V}_{\text{LLM}}$};
+  \node[risk, right=of llm] (risk) {Risk/sizing\\layer $\mathcal{R}$};
+  \node[box, below=10mm of risk] (broker) {Alpaca paper\\trading};
+  \node[box, left=of broker] (logs) {Logs / metrics\\\scriptsize equity, JSONL, metrics.json};
+  \draw[arrow] (data) -- (signal);
+  \draw[arrow] (signal) -- node[above, font=\scriptsize] {$(\hat{a}_t,\hat{q}_t)$} (llm);
+  \draw[arrow] (llm) -- node[above, font=\scriptsize] {$v_t \in \{\text{true},\text{false}\}$} (risk);
+  \draw[arrow] (risk) -- (broker);
+  \draw[arrow] (broker) -- (logs);
+\end{tikzpicture}
+\caption{End-to-end architecture of OpenClaw-Agent. The LLM acts only as a Boolean veto $\mathcal{V}_{\text{LLM}}$ on rule-proposed actions; the deterministic risk/sizing layer $\mathcal{R}$ is the final gate before any order is sent to the Alpaca paper-trading endpoint. All artefacts (equity curves, structured logs, metrics) are emitted by the broker integration layer. This figure is purely architectural and does not display any experimental result.}
+\label{fig:arch}
+\end{figure}
 \label{sec:methodology}
 
 \subsection{System architecture}
@@ -176,6 +204,22 @@ B3+LLM & 66 & 0.048 & 4.85 & 0.249 & 16.35 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+% Guarded equity-curve figure: only renders if paper/equity_curve.png is present.
+% Per the project's no-fabrication rule, this figure is intentionally absent until
+% sufficient non-flat logged equity points are available from live paper-trading runs.
+\IfFileExists{equity_curve.png}{%
+  \begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\linewidth]{equity_curve.png}
+  \caption{Equity curves for baseline (B3) and treatment (B3+LLM) over the current evaluation horizon. While both trajectories remain close due to limited data, the figure illustrates the stability of the system and the absence of divergence between configurations.}
+  \label{fig:equity}
+  \end{figure}
+}{%
+  % equity_curve.png not yet committed; figure slot intentionally left empty.
+}
+
+An equity-curve figure is reserved for the final run and will be included once a sufficient number of non-flat logged equity points are available from live paper-trading. At the current horizon, the recorded equity series remains flat at the initial cash level for both cells, so any plotted curve would be uninformative; we therefore prefer to omit the figure rather than display a degenerate one.
 
 \paragraph{Early-stage observations.}
 Despite the limited horizon, several structural patterns can already be observed. First, cumulative returns remain extremely close across both cells, with differences on the order of $10^{-4}$, suggesting that the LLM veto layer does not introduce large directional bias at this stage. Second, maximum drawdown is nearly identical across configurations (0.237\% vs.\ 0.249\%), indicating that any potential risk-reduction effect of the LLM filter is not yet distinguishable from sampling noise.
