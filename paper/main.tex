@@ -1,4 +1,5 @@
 \documentclass{article}
+
 \usepackage[preprint]{neurips_2024}
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -26,153 +27,248 @@
 \maketitle
 
 \begin{abstract}
-We present \textbf{OpenClaw-Agent}, a constrained and auditable architecture for Large Language Model (LLM) assisted financial trading agents. The system is designed for SecureFinAI Contest 2026, Task V (\emph{Agentic Trading Using OpenClaw}), and runs on Alpaca paper trading. Three design principles distinguish it from prior LLM-based trading agents such as TradingAgents~\cite{tradingagents_xiao2024} and FinMem~\cite{finmem_yu2023}: (i) \emph{bounded LLM autonomy} -- the LLM acts only as a Boolean veto/approval layer and cannot originate, retarget, or upsize trades; (ii) \emph{safety by design} -- a deterministic risk envelope is enforced after the LLM verdict, structurally analogous to a runtime shield in safe reinforcement learning~\cite{shielded_rl_alshiekh2018}, so that hallucinated~\cite{hallucination_survey_zhang2023} or miscalibrated LLM verdicts cannot place a non-conforming order; (iii) \emph{auditability} -- every executed order is persisted as line-delimited JSON together with the equity curve as CSV, enabling offline recomputation of contest metrics~\cite{pineau_reproducibility2020}. The currently shipped runtime envelope enforces a per-position notional cap; the gross-exposure, stop-loss, and take-profit parameters are exposed in the configuration and are intended to be fully shielded in a follow-up revision. We are explicit that the architecture provides only a \emph{structural} property (true by construction): the executed action set is a subset of the rule-proposed action set. Whether the LLM-veto layer empirically improves risk-adjusted return remains a falsifiable hypothesis (H1, Section~\ref{sec:protocol}). At the time of this submission the live paper-trading run has executed two cells (B3 and B3+LLM) and is still accumulating data; we therefore report a full \emph{Experimental Protocol and Evaluation Plan}, including pre-registered baselines, ablations, metrics aligned with the Task V specification, multiple-comparison corrections, and a stop-rule under which insufficient data are reported as \texttt{null} rather than imputed.
+We present \textbf{OpenClaw-Agent}, a constrained and auditable architecture for Large Language Model (LLM) assisted financial trading agents. The system is designed for SecureFinAI Contest 2026, Task V (\emph{Agentic Trading Using OpenClaw}), and runs on Alpaca paper trading. Three design principles distinguish it from prior LLM-based trading agents such as TradingAgents~\cite{tradingagents_xiao2024} and FinMem~\cite{finmem_yu2023}: (i) \emph{bounded LLM autonomy} -- the LLM acts only as a Boolean veto/approval layer and cannot originate, retarget, or upsize trades; (ii) \emph{a deterministic sizing and risk layer} -- a per-position notional cap is enforced after the LLM verdict, structurally analogous in spirit to a runtime shield in safe reinforcement learning~\cite{shielded_rl_alshiekh2018}, so that hallucinated~\cite{hallucination_survey_zhang2023} or miscalibrated LLM verdicts cannot enlarge or redirect a trade. Additional risk parameters (gross exposure, stop-loss, take-profit) are declared in the configuration as a target envelope but are only partially enforced in the present implementation; we are explicit about which constraints are actually active in Section~\ref{sec:risk}; (iii) \emph{auditability} -- every cycle (signal, LLM rationale, final order) is persisted as line-delimited records, enabling offline recomputation of all metrics~\cite{pineau_reproducibility2020}. We are explicit that the architecture provides only a \emph{structural} property (true by construction): the executed action set is a subset of the rule-proposed action set, and no executed order can exceed the per-position notional cap. Whether the LLM-veto layer empirically improves risk-adjusted return remains a falsifiable hypothesis (H1, Section~\ref{sec:protocol}). The current implementation uses a single LLM provider (Groq, \texttt{llama-3.3-70b-versatile}) and runs at decision interval $\Delta_t = 5$~min on the universe $\{$BTC/USD, ETH/USD, SOL/USD$\}$. At the time of this submission the live paper-trading run is in progress: $n_{\text{B3}}=90$ and $n_{\text{B3+LLM}}=66$ decision cycles, both well below the pre-registered $T_{\min}=500$. Following the stop-rule, all H1-relevant confidence intervals are reported as \texttt{null} and the empirical claim is reported as \emph{not yet tested}. The point estimates of cumulative return and maximum drawdown are within the same order of magnitude across cells and are interpreted only as evidence of a well-formed pipeline, not as evidence on H1.
 \end{abstract}
 
 \section{Introduction}
-
 LLM-based agents are increasingly deployed in high-stakes domains, including algorithmic trading~\cite{tradingagents_xiao2024,finmem_yu2023,bloomberggpt_wu2023,fingpt_yang2023,lopezlira_tang2023}. Two failure modes are well documented for fully autonomous LLM trading agents. First, LLMs are known to hallucinate~\cite{hallucination_survey_zhang2023}, which in a trading context can translate into fabricated tickers, inverted directions, or invented sizes. Second, LLMs evaluated on financial time series are vulnerable to look-ahead bias arising from information leaked through their pre-training corpus~\cite{lookaheadbench}. Conversely, purely rule-based technical strategies are interpretable but lack the contextual reasoning that LLMs can contribute, for example reading a regime shift in a news headline.
 
 \paragraph{Problem.} A practical LLM-assisted trading agent must therefore reconcile two conflicting requirements: leveraging the contextual reasoning of an LLM, while preventing the LLM from autonomously originating trades that violate risk limits or that are simply hallucinated.
 
-\paragraph{Approach.} \textbf{OpenClaw-Agent} addresses this trade-off through a deliberately constrained architecture in which the LLM is a \emph{Boolean veto layer} on top of a deterministic, rule-based signal layer, and a hard risk envelope is enforced \emph{after} the LLM verdict. This design is structurally analogous to post-posed shields in safe reinforcement learning~\cite{shielded_rl_alshiekh2018}, transposed to LLM-driven control. The agent runs on Alpaca paper trading~\cite{alpaca_api} over a small crypto universe, in line with SecureFinAI Contest 2026, Task V~\cite{securefinai2026}.
+\paragraph{Approach.} \textbf{OpenClaw-Agent} addresses this trade-off through a deliberately constrained architecture in which the LLM is a \emph{Boolean veto layer} on top of a deterministic, rule-based signal layer, and a hard sizing constraint is enforced \emph{after} the LLM verdict. This design is structurally analogous to post-posed shields in safe reinforcement learning~\cite{shielded_rl_alshiekh2018}, transposed to LLM-driven control. The agent runs on Alpaca paper trading~\cite{alpaca_api} over a small crypto universe, in line with SecureFinAI Contest 2026, Task V~\cite{securefinai2026}.
 
-\paragraph{Structural vs.\ empirical claims.} We separate two classes of claims throughout this paper. \emph{Structural} claims are properties of the architecture that hold by construction (e.g., the executed action set is a subset of the rule-proposed action set). \emph{Empirical} claims concern whether adding the LLM-veto layer actually improves risk-adjusted return, drawdown, or decision quality on live paper-trading data; these are falsifiable and tested under the protocol of Section~\ref{sec:protocol}.
+\paragraph{Structural vs.\ empirical claims.} We separate two classes of claims throughout this paper. \emph{Structural} claims are properties of the architecture that hold by construction (e.g., the executed action set is a subset of the rule-proposed action set, and no executed order can exceed the per-position cap). \emph{Empirical} claims concern whether adding the LLM-veto layer actually improves risk-adjusted return, drawdown, or decision quality on live paper-trading data; these are falsifiable and tested under the protocol of Section~\ref{sec:protocol}.
 
 \paragraph{Contributions.} The contributions of this paper are:
 \begin{enumerate}
   \item A precise architectural specification of an LLM-as-Boolean-veto trading agent, with formal notation for the decision pipeline (Section~\ref{sec:methodology}).
-  \item An open-source reference implementation aligned with the Task V protocol (Alpaca paper trading, JSONL orders log, daily-equity CSV).
+  \item An open-source reference implementation aligned with the Task V protocol (Alpaca paper trading, JSONL orders log, equity CSV).
   \item A pre-registered \emph{Experimental Protocol and Evaluation Plan} that specifies a falsifiable primary hypothesis (H1), baselines, ablations, multiple-comparison corrections, and an explicit \texttt{null}-reporting stop-rule designed to prevent fabricated empirical claims.
 \end{enumerate}
-We deliberately do not report any empirical performance number in this draft: the live paper-trading log is too short for statistically meaningful estimation, and producing imputed numbers would defeat the purpose of the architecture.
+We deliberately do not report any empirical performance number in this draft beyond descriptive point estimates: the live paper-trading log is too short for statistically meaningful estimation, and producing imputed numbers would defeat the purpose of the architecture.
 
 \section{Related Work}
-
-\paragraph{LLM trading agents.} Recent work has explored LLM-based agents for financial decision making. \emph{FinMem}~\cite{finmem_yu2023} introduces a layered-memory LLM trader with a profiling and decision module. \emph{TradingAgents}~\cite{tradingagents_xiao2024} models a multi-agent trading firm with specialised LLM analysts and risk-management agents. Both adopt a fully autonomous LLM design, in contrast to OpenClaw-Agent's bounded Boolean veto layer. \emph{FinRL-DeepSeek}~\cite{finrl_deepseek} augments a CPPO reinforcement-learning trader with LLM-generated risk signals on Nasdaq-100 data; this is the closest prior work in spirit. Empirical evidence that LLMs can extract predictive signal from financial text is provided by Lopez-Lira and Tang~\cite{lopezlira_tang2023}, motivating the use of LLM judgement as a complement to, rather than a replacement for, rule-based signals.
-
+\paragraph{LLM trading agents.} Recent work has explored LLM-based agents for financial decision making. \emph{FinMem}~\cite{finmem_yu2023} introduces a layered-memory LLM trader with a profiling and decision module. \emph{TradingAgents}~\cite{tradingagents_xiao2024} models a multi-agent trading firm with specialised LLM analysts and risk-management agents. Both adopt a fully autonomous LLM design, in contrast to OpenClaw-Agent\textquoteright s bounded Boolean veto layer. \emph{FinRL-DeepSeek}~\cite{finrl_deepseek} augments a CPPO reinforcement-learning trader with LLM-generated risk signals on Nasdaq-100 data; this is the closest prior work in spirit. Empirical evidence that LLMs can extract predictive signal from financial text is provided by Lopez-Lira and Tang~\cite{lopezlira_tang2023}, motivating the use of LLM judgement as a complement to, rather than a replacement for, rule-based signals.
 \paragraph{LLM agent frameworks.} Our pipeline is inspired by the broader literature on LLM agents that interleave reasoning and action, in particular ReAct~\cite{react_yao2022} and Reflexion~\cite{reflexion_shinn2023}. We deliberately depart from these frameworks by stripping the LLM down to a single Boolean output, sacrificing expressiveness for safety and auditability.
-
 \paragraph{Domain-specific finance LLMs.} BloombergGPT~\cite{bloomberggpt_wu2023} and FinGPT~\cite{fingpt_yang2023} demonstrate that financially specialised LLMs can match or exceed general-purpose models on finance-specific tasks. Our system is provider-agnostic and treats the LLM as a black-box veto, so any such model can in principle be plugged in via the LLM module.
-
-\paragraph{Safe RL and shielded control.} The architectural pattern in which a deterministic safety layer post-processes a learned controller has a direct antecedent in safe reinforcement learning, in particular shielded RL~\cite{shielded_rl_alshiekh2018}. We adopt the same logical pattern: the rule-based signal proposes, the LLM either approves or vetoes, and the risk envelope acts as a runtime shield enforcing temporal-logic-like exposure and drawdown specifications. We are not aware of prior work that explicitly transposes this shielding pattern to LLM-driven trading.
-
+\paragraph{Safe RL and shielded control.} The architectural pattern in which a deterministic safety layer post-processes a learned controller has a direct antecedent in safe reinforcement learning, in particular shielded RL~\cite{shielded_rl_alshiekh2018}. We adopt the same logical pattern: the rule-based signal proposes, the LLM either approves or vetoes, and the sizing layer acts as a runtime gate on the per-position notional. We are not aware of prior work that explicitly transposes this shielding pattern to LLM-driven trading.
 \paragraph{RL in financial markets.} Beyond LLM-based agents, deep reinforcement learning has been applied to liquidity provisioning on Uniswap v3~\cite{uniswap_rl}, demonstrating that risk-sensitive PPO policies transfer to non-equity financial environments.
-
-\paragraph{Look-ahead bias.} Look-Ahead-Bench~\cite{lookaheadbench} formalises look-ahead bias in point-in-time financial LLMs, motivating our choice to evaluate the agent on \emph{live} paper trading after the LLM's pre-training cutoff, rather than on retrospective backtests.
-
+\paragraph{Look-ahead bias.} Look-Ahead-Bench~\cite{lookaheadbench} formalises look-ahead bias in point-in-time financial LLMs, motivating our choice to evaluate the agent on \emph{live} paper trading after the LLM\textquoteright s pre-training cutoff, rather than on retrospective backtests.
 \paragraph{Live forecasting benchmarks (out-of-domain context).} A wave of live LLM benchmarks evaluates frontier models on tasks adjacent to ours: VCBench~\cite{vcbench}, YC Bench~\cite{ycbench}, FutureX~\cite{futurex}, and methods for open-ended reasoning~\cite{scaling_open_ended}. These works share our emphasis on contamination-free, post-cutoff evaluation, although their domains differ from short-horizon crypto trading.
-
 \paragraph{Reproducibility.} We follow the practices articulated in the NeurIPS 2019 Reproducibility Programme~\cite{pineau_reproducibility2020}, in particular the use of structured logs and an explicit reproducibility checklist as part of the artefact.
-
-\paragraph{Hallucination.} Survey work~\cite{hallucination_survey_zhang2023} characterises LLM hallucination phenomena and mitigation strategies. Our LLM-as-veto design is one such mitigation: it is a structural restriction on the LLM's action space, not a claim that the LLM is itself less prone to hallucination.
+\paragraph{Hallucination.} Survey work~\cite{hallucination_survey_zhang2023} characterises LLM hallucination phenomena and mitigation strategies. Our LLM-as-veto design is one such mitigation: it is a structural restriction on the LLM\textquoteright s action space, not a claim that the LLM is itself less prone to hallucination.
 
 \section{Problem Formulation}
 \label{sec:problem}
+We model trading as a discrete-time decision process over a fixed crypto universe $\mathcal{U} = \{$BTC/USD, ETH/USD, SOL/USD$\}$ with $|\mathcal{U}| = N$. At each decision step $t$ (every $\Delta_t$ minutes; in the current implementation $\Delta_t = 5$~min), the agent observes the recent $L$ bars of OHLCV data $X_t \in \mathbb{R}^{L \times 5}$, the current portfolio state $P_t = (c_t, h_t, e_t)$ (cash, holdings vector, equity), and produces an action $a_t \in \mathcal{A} = \{\textsc{buy}, \textsc{sell}, \textsc{hold}\}$ together with a sized quantity $q_t \in \mathbb{R}_{\geq 0}$.
 
+<<<<<<< HEAD
+\paragraph{Objective.} Risk-adjusted return on the equity curve $\{e_t\}_{t \geq 0}$, subject to the target risk specifications
+=======
 We model trading as a discrete-time decision process over a fixed crypto universe $\mathcal{U} = \{$BTC/USD, ETH/USD, SOL/USD$\}$ with $|\mathcal{U}| = N$. At each decision step $t$ (every $\Delta_t$ minutes; the current run uses $\Delta_t = 5$ min), the agent observes the recent $L$ bars of OHLCV data $X_t \in \mathbb{R}^{L \times 5}$, the current portfolio state $P_t = (c_t, h_t, e_t)$ (cash, holdings vector, equity), and produces an action $a_t \in \mathcal{A} = \{\textsc{buy}, \textsc{sell}, \textsc{hold}\}$ together with a sized quantity $q_t \in \mathbb{R}_{\geq 0}$.
 
 \paragraph{Objective.} Risk-adjusted return on the equity curve $\{e_t\}_{t \geq 0}$, subject to the hard constraints
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 \begin{align}
-\frac{|h_{i,t}| \cdot p_{i,t}}{e_t} &\leq \tau_{\text{pos}}, \quad \forall i \in \mathcal{U}, \label{eq:per-position} \\
-\frac{\sum_{i \in \mathcal{U}} |h_{i,t}| \cdot p_{i,t}}{e_t} &\leq \tau_{\text{gross}}, \label{eq:gross} \\
-\mathrm{drawdown}(e_t) &\leq \tau_{\text{stop}}, \label{eq:stop} \\
-\mathrm{gain}(e_t) &\leq \tau_{\text{take}}, \label{eq:take}
+  \frac{|h_{i,t}| \cdot p_{i,t}}{e_t} &\leq \tau_{\text{pos}}, \quad \forall i \in \mathcal{U}, \label{eq:per-position} \\
+  \frac{\sum_{i \in \mathcal{U}} |h_{i,t}| \cdot p_{i,t}}{e_t} &\leq \tau_{\text{gross}}, \label{eq:gross} \\
+  \mathrm{drawdown}(e_t) &\leq \tau_{\text{stop}}, \label{eq:stop} \\
+  \mathrm{gain}(e_t) &\leq \tau_{\text{take}}, \label{eq:take}
 \end{align}
+<<<<<<< HEAD
+where $p_{i,t}$ is the last price of asset $i$ and the $\tau_{\bullet}$ are the agent\textquoteright s risk parameters (\texttt{MAX\_POSITION\_PCT}, \texttt{MAX\_GROSS\_EXPOSURE\_PCT}, \texttt{STOP\_LOSS\_PCT}, \texttt{TAKE\_PROFIT\_PCT}). We list all four constraints as \emph{target} risk specifications because they are exposed as configuration variables; in the present implementation, only Equation~\eqref{eq:per-position} is enforced at the per-cycle decision boundary, while Equations~\eqref{eq:gross}--\eqref{eq:take} are part of the declared envelope but not yet enforced as runtime gates. We make this distinction explicit in Section~\ref{sec:risk} and treat full-envelope enforcement as future work. No real capital is at stake: all execution happens in Alpaca paper trading.
+=======
 where $p_{i,t}$ is the last price of asset $i$ and the $\tau_{\bullet}$ are the agent's risk parameters (\texttt{MAX\_POSITION\_PCT}, \texttt{MAX\_GROSS\_EXPOSURE\_PCT}, \texttt{STOP\_LOSS\_PCT}, \texttt{TAKE\_PROFIT\_PCT}). The currently shipped runtime envelope enforces Equation~\eqref{eq:per-position} (per-position cap) directly inside the sizing logic; Equations~\eqref{eq:gross}--\eqref{eq:take} are exposed as configuration parameters that bound the design intent and that we will lift into a fully runtime-shielded form in a follow-up revision (see Section~\ref{sec:risk}). No real capital is at stake: all execution happens in Alpaca paper trading.
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
 \section{Methodology}
 \label{sec:methodology}
 
 \subsection{System architecture}
-
 OpenClaw-Agent is implemented as a Python package with five clearly separated modules: \texttt{alpaca\_client.py} (broker abstraction), \texttt{signals.py} (technical indicators), \texttt{strategy.py} (sizing and decision aggregation), \texttt{llm.py} (LLM veto), and \texttt{logger.py} (structured logging). A main loop in \texttt{agent/main.py} runs at interval $\Delta_t$ and is deployable in a long-running container.
 
 \subsection{Decision pipeline}
-
 The decision pipeline at step $t$ is the deterministic composition
 \begin{equation}
-(a_t, q_t) \;=\; \mathcal{R} \;\circ\; \mathcal{V}_{\text{LLM}} \;\circ\; \mathcal{S}(X_t, P_t),
-\label{eq:pipeline}
+  (a_t, q_t) \;=\; \mathcal{R} \;\circ\; \mathcal{V}_{\text{LLM}} \;\circ\; \mathcal{S}(X_t, P_t),
+  \label{eq:pipeline}
 \end{equation}
-applied outer-to-inner: $\mathcal{S}$ first maps $(X_t, P_t)$ to a candidate order, $\mathcal{V}_{\text{LLM}}$ then either approves it or replaces it with $(\textsc{hold}, 0)$, and $\mathcal{R}$ acts last as a hard gate that enforces Equations~\eqref{eq:per-position}--\eqref{eq:take}. This ordering is what makes the structural property of Section~\ref{sec:structural} hold by construction: regardless of any LLM output, the executed action is either the rule-proposed action or $(\textsc{hold}, 0)$, and is always within the risk envelope.
+applied outer-to-inner: $\mathcal{S}$ first maps $(X_t, P_t)$ to a candidate order, $\mathcal{V}_{\text{LLM}}$ then either approves it or replaces it with $(\textsc{hold}, 0)$, and $\mathcal{R}$ acts last as a hard gate on the per-position cap. This ordering is what makes the structural property of Section~\ref{sec:structural} hold by construction: regardless of any LLM output, the executed action is either the rule-proposed action or $(\textsc{hold}, 0)$, and is always within the per-position envelope.
 
 \subsection{Technical signal layer ($\mathcal{S}$)}
 \label{sec:signals}
-
 The signal layer computes three indicators on the closing-price series: an EMA(12)/EMA(26) crossover, RSI(14), and a momentum term over $N_m=20$ bars. These are aggregated into a bounded score $s_t \in [-1, 1]$, a candidate action $\hat{a}_t \in \mathcal{A}$, and a human-readable rationale. $\mathcal{S}$ is deterministic, depends only on past data, and is unit-tested independently of the LLM. We acknowledge that this is a textbook technical setup (see Limitations); its role here is to provide an interpretable, auditable origination layer rather than a state-of-the-art forecaster.
 
 \subsection{LLM veto operator ($\mathcal{V}_{\text{LLM}}$)}
 \label{sec:llm-veto}
-
 When an LLM provider is configured, the candidate $(\hat{a}_t, \hat{q}_t)$ is forwarded to the LLM together with a compact JSON-only prompt summarising recent statistics (last price, 1-hour return, 24-hour return, 24-hour realized volatility). The LLM is instructed to return a Boolean \emph{approval} flag $v_t$ and a short rationale. The veto operator is then defined as
 \begin{equation}
-\mathcal{V}_{\text{LLM}}(\hat{a}_t, \hat{q}_t) \;=\;
-\begin{cases}
-(\hat{a}_t, \hat{q}_t) & \text{if } v_t = \texttt{true}, \\
-(\textsc{hold}, 0) & \text{if } v_t = \texttt{false}.
-\end{cases}
+  \mathcal{V}_{\text{LLM}}(\hat{a}_t, \hat{q}_t) \;=\;
+    \begin{cases}
+      (\hat{a}_t, \hat{q}_t) & \text{if } v_t = \texttt{true}, \\
+      (\textsc{hold}, 0)     & \text{if } v_t = \texttt{false}.
+    \end{cases}
 \end{equation}
-By construction, $\mathcal{V}_{\text{LLM}}$ cannot change the symbol, increase $\hat{q}_t$, or introduce a new action. This is a restriction on the LLM's action space, not a claim about the LLM's internal calibration.
+By construction, $\mathcal{V}_{\text{LLM}}$ cannot change the symbol, increase $\hat{q}_t$, or introduce a new action. This is a restriction on the LLM\textquoteright s action space, not a claim about the LLM\textquoteright s internal calibration.
 
-\subsection{Risk envelope ($\mathcal{R}$)}
+\subsection{Sizing and risk layer ($\mathcal{R}$)}
 \label{sec:risk}
+The deterministic post-LLM layer~$\mathcal{R}$, currently implemented inside \texttt{strategy.py} rather than as a separate module, plays two distinct roles in the present implementation, which we describe with care.
 
+<<<<<<< HEAD
+\paragraph{Per-position notional cap (enforced).} For any candidate \textsc{buy} order on asset~$i$ at price~$p_{i,t}$, $\mathcal{R}$ computes the maximum admissible additional notional as
+\[
+  B_{i,t} \;=\; \tau_{\text{pos}} \cdot e_t \;-\; |h_{i,t}| \cdot p_{i,t},
+\]
+clips the candidate notional to $\min(B_{i,t},\,0.95 \cdot c_t)$, and replaces the order with $(\textsc{hold},0)$ when $B_{i,t}\leq 10$ or when cash is below the minimum trade notional. This enforces Equation~\eqref{eq:per-position} on every executed order and guarantees that no executed action can increase exposure beyond $\tau_{\text{pos}}$ on any single asset.
+=======
 The risk envelope is intended to reject any output of $\mathcal{V}_{\text{LLM}}$ that violates Equations \eqref{eq:per-position}--\eqref{eq:take}, replacing it with $(\textsc{hold}, 0)$. $\mathcal{R}$ depends only on the current portfolio state and the candidate order, and is enforced regardless of the LLM verdict. In safe-RL terminology~\cite{shielded_rl_alshiekh2018}, $\mathcal{R}$ plays the role of a post-posed shield that monitors the controller's output and corrects violations of an exposure/drawdown specification.
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
+<<<<<<< HEAD
+\paragraph{Gross-exposure, stop-loss and take-profit (declared, partially enforced).} The configuration also exposes $\tau_{\text{gross}}$, $\tau_{\text{stop}}$ and $\tau_{\text{take}}$ as parameters, and the per-asset cap above acts as an indirect upper bound on gross exposure (since gross exposure is at most $N \cdot \tau_{\text{pos}}$ in the worst case, where $N=|\mathcal{U}|$). However, none of $\tau_{\text{gross}}$, $\tau_{\text{stop}}$ or $\tau_{\text{take}}$ is currently enforced as a runtime gate that converts a candidate non-hold order into $(\textsc{hold},0)$ when the global portfolio state would violate it. Promoting these from declared parameters to enforced gates -- in the spirit of a post-posed shield in safe reinforcement learning~\cite{shielded_rl_alshiekh2018} -- is part of the planned roadmap and is explicitly listed in Section~\ref{sec:limitations}.
+
+\paragraph{Implication for structural claims.} The structural property of Section~\ref{sec:structural} is therefore stated for the constraints actually enforced (Equation~\eqref{eq:per-position}), not for the full target envelope. We do not claim that the present implementation is a complete shield; we claim that it cannot place a single-asset order beyond $\tau_{\text{pos}}$ regardless of the LLM verdict.
+
+=======
 \paragraph{Implementation status.} The version of $\mathcal{R}$ shipped at submission time enforces Equation~\eqref{eq:per-position} (per-asset notional cap, parameter \texttt{MAX\_POSITION\_PCT}) directly inside the sizing path of \texttt{strategy.py}: any candidate \textsc{buy} is clipped to the remaining headroom under $\tau_{\text{pos}}$, and a saturated position becomes $(\textsc{hold}, 0)$. The parameters \texttt{MAX\_GROSS\_EXPOSURE\_PCT}, \texttt{STOP\_LOSS\_PCT}, and \texttt{TAKE\_PROFIT\_PCT} (Equations~\eqref{eq:gross}--\eqref{eq:take}) are present in the configuration and define the design contract, but are not yet enforced as a separate runtime gate. The structural property of Section~\ref{sec:structural} therefore holds today with respect to per-position exposure and to the action-set restriction; the gross-exposure and drawdown / take-profit shields are planned for a follow-up revision and are described here as part of the architectural target.
 
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 \subsection{Structural property}
 \label{sec:structural}
+Let $\mathcal{A}_{\mathcal{S}}(X_t, P_t)$ denote the set of orders that the signal layer can produce, and let $\mathcal{A}_{\text{exec}}(X_t, P_t)$ denote the set of orders that can be executed by the full pipeline of Equation~\eqref{eq:pipeline}. By construction, $\mathcal{A}_{\text{exec}}(X_t, P_t) \subseteq \mathcal{A}_{\mathcal{S}}(X_t, P_t) \cup \{(\textsc{hold}, 0)\}$ and every executed order satisfies the per-position cap of Equation~\eqref{eq:per-position}. The full envelope of Equations~\eqref{eq:gross}--\eqref{eq:take} is declared but not yet runtime-enforced (Section~\ref{sec:risk}); we therefore restrict the structural claim to Equation~\eqref{eq:per-position}. We emphasise that this is a definitional property, not an empirical contribution: it follows directly from the signature of $\mathcal{V}_{\text{LLM}}$ and the placement of $\mathcal{R}$. The empirical question of whether this restriction \emph{helps} risk-adjusted return is left to the protocol of Section~\ref{sec:protocol}.
 
+<<<<<<< HEAD
+=======
 Let $\mathcal{A}_{\mathcal{S}}(X_t, P_t)$ denote the set of orders that the signal layer can produce, and let $\mathcal{A}_{\text{exec}}(X_t, P_t)$ denote the set of orders that can be executed by the full pipeline of Equation~\eqref{eq:pipeline}. By construction, $\mathcal{A}_{\text{exec}}(X_t, P_t) \subseteq \mathcal{A}_{\mathcal{S}}(X_t, P_t) \cup \{(\textsc{hold}, 0)\}$ and, in the currently shipped runtime, every executed order satisfies Equation~\eqref{eq:per-position}; the joint enforcement of Equations~\eqref{eq:per-position}--\eqref{eq:take} as a single runtime shield is the architectural target completed by the planned extension of $\mathcal{R}$ described in Section~\ref{sec:risk}. We emphasise that the action-set restriction is a definitional property, not an empirical contribution: it follows directly from the signature of $\mathcal{V}_{\text{LLM}}$ and the placement of $\mathcal{R}$. The empirical question of whether this restriction \emph{helps} risk-adjusted return is left to the protocol of Section~\ref{sec:protocol}.
 
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 \subsection{Logging and reproducibility}
+<<<<<<< HEAD
+Every cycle persists, on the local filesystem of the agent: an equity / cash snapshot to \texttt{logs/<cell>/equity.csv}, a human-readable trace to \texttt{logs/<cell>/agent.log} and \texttt{logs/<cell>/stdout.log}, and -- only when an order is actually submitted -- a structured order record to \texttt{logs/<cell>/orders.jsonl}. The order record contains the signal output $(\hat{a}_t, \hat{q}_t, s_t, \text{reason}_t)$, the LLM verdict $(v_t, \text{rationale}_t)$ when applicable, and the broker response. Logs are never committed to the repository (\texttt{.gitignore}). Periodic snapshots are placed in \texttt{results/logs\_snapshot/} for offline analysis. Aggregated metrics produced by \texttt{scripts/h1\_test.py} are written to \texttt{results/metrics.json} and \texttt{results/h1\_table.md}. The configuration is fully driven by environment variables, documented in \texttt{.env.example}, in line with the NeurIPS reproducibility checklist~\cite{pineau_reproducibility2020}.
+=======
 \label{sec:logging}
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
+<<<<<<< HEAD
+=======
 The system persists three artefacts per ablation cell, mirroring the contest submission format: (i) an equity / cash time series in CSV (\texttt{logs/<cell>/equity.csv}), appended once per decision cycle; (ii) a line-delimited JSON file of \emph{submitted} orders (\texttt{logs/<cell>/orders.jsonl}), where each record carries the timestamp, symbol, side, quantity, broker status and order id, the originating signal score, the LLM-approval boolean (when an LLM provider is configured), and a short textual reason composed from the signal rationale and, when applicable, the LLM rationale; and (iii) a free-text agent log (\texttt{logs/<cell>/agent.log}) plus the run's standard output (\texttt{stdout.log}), which together preserve the per-cycle signal and LLM diagnostics for cycles that do not submit an order. Equity and orders are sufficient to recompute the contest metrics (CR, SR, MD, DV, AV) offline; the per-cycle signal/verdict stream is currently captured in the agent log rather than as a separate structured JSONL. Promoting that stream to a per-cycle JSONL artefact is a small, planned extension. Logs are written to \texttt{logs/}, never committed to the repository, and snapshots used for the metrics tables are mirrored under \texttt{results/logs\_snapshot/}. The configuration is fully driven by environment variables, documented in \texttt{.env.example}, in line with the NeurIPS reproducibility checklist~\cite{pineau_reproducibility2020}.
 
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 \section{Experimental Protocol and Evaluation Plan}
 \label{sec:protocol}
+The live paper-trading run is in progress at the time of writing. We describe the evaluation protocol that will produce the final numbers, the rule under which they will (or will not) be reported, and the current status of each cell. We adopt this honest-reporting approach following the NeurIPS Reproducibility Programme~\cite{pineau_reproducibility2020}.
 
-The live paper-trading run has not yet accumulated a sufficiently long log to support statistically meaningful inference. We therefore describe the evaluation protocol that will produce the final numbers, and the rule under which they will (or will not) be reported. We adopt this honest-reporting approach following the NeurIPS Reproducibility Programme~\cite{pineau_reproducibility2020}.
+\paragraph{Primary hypothesis (H1).} The LLM-veto layer reduces realised maximum drawdown by at least $\Delta_{\text{MD}} = 2$ percentage points relative to baseline (B3) rules+sizing, at the cost of at most $\Delta_{\text{CR}} = 1$ percentage point in cumulative return, on the same paper-trading window. H1 is rejected when either (i) the bootstrap 95\% confidence interval for the MD difference does not include $\Delta_{\text{MD}}$, or (ii) the bootstrap 95\% confidence interval for the CR difference falls below $-\Delta_{\text{CR}}$. The thresholds $\Delta_{\text{MD}}, \Delta_{\text{CR}}$ are pre-registered here and will not be tuned post hoc.
 
-\paragraph{Primary hypothesis (H1).} The LLM-veto layer reduces realised maximum drawdown by at least $\Delta_{\text{MD}} = 2$ percentage points relative to baseline (B3) rules+risk, at the cost of at most $\Delta_{\text{CR}} = 1$ percentage point in cumulative return, on the same paper-trading window. H1 is rejected when either (i) the bootstrap 95\% confidence interval for the MD difference does not include $\Delta_{\text{MD}}$, or (ii) the bootstrap 95\% confidence interval for the CR difference falls below $-\Delta_{\text{CR}}$. The thresholds $\Delta_{\text{MD}}, \Delta_{\text{CR}}$ are pre-registered here and will not be tuned post hoc.
+\paragraph{Evaluation environment.} A separate Alpaca paper-trading account per ablation cell, with initial equity \$100{,}000, per the SecureFinAI Contest 2026 Task V specification~\cite{securefinai2026}. Reusing one account across cells would conflate the equity curves and is forbidden by the protocol.
 
-\paragraph{Evaluation environment.} A single Alpaca paper-trading account per ablation cell, with initial equity \$100{,}000, per the SecureFinAI Contest 2026 Task V specification~\cite{securefinai2026}.
+\paragraph{Universe and decision frequency.} $\mathcal{U} = \{$BTC/USD, ETH/USD, SOL/USD$\}$, $\Delta_t = 5$~min, 15-min OHLCV bars, lookback $L = 200$.
 
+<<<<<<< HEAD
+\paragraph{LLM configuration.} The current run uses a single LLM provider, Groq, with model \texttt{llama-3.3-70b-versatile} accessed through Groq\textquoteright s OpenAI-compatible endpoint, at temperature $0.2$ and a fixed JSON-only prompt. Cross-provider comparison is deferred to future work (see Ablations).
+=======
 \paragraph{Universe and decision frequency.} $\mathcal{U} = \{$BTC/USD, ETH/USD, SOL/USD$\}$, $\Delta_t = 5$ min on 15-min bars, lookback $L = 200$.
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
+<<<<<<< HEAD
+\paragraph{Logged artefacts.} Per cycle: equity / cash snapshot to \texttt{equity.csv}, structured trace to \texttt{agent.log}, and -- when an order is actually submitted -- a record to \texttt{orders.jsonl}. The format is compatible with the Task~V required submission (orders JSONL and equity CSV).
+=======
 \paragraph{Logged artefacts.} Per cell: equity / cash time series in CSV (\texttt{equity.csv}); submitted orders in JSONL (\texttt{orders.jsonl}, populated when a non-\textsc{hold} order is actually sent to the broker); free-text agent log (\texttt{agent.log}) and \texttt{stdout.log} carrying the per-cycle signal score, signal action, and LLM verdict diagnostics. This matches the contest's required submission format (orders JSONL and equity CSV); the per-cycle signal/verdict stream is currently captured in the agent log (see Section~\ref{sec:logging}).
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
 \paragraph{Primary metric.} Cumulative Return (CR), as required by Task V.
 
-\paragraph{Secondary metrics.} Sharpe Ratio (SR), Maximum Drawdown (MD), Daily Volatility (DV), and Annualised Volatility (AV), per the contest specification, plus two diagnostic metrics specific to this paper: the \emph{LLM veto rate} $\rho = \frac{1}{T} \sum_t \mathbf{1}[v_t = \texttt{false}]$ and the \emph{decision consistency} $\kappa = \frac{1}{T} \sum_t \mathbf{1}[v_t = \texttt{true}]$ on cycles where $\hat{a}_t \neq \textsc{hold}$. We treat $\rho$ and $\kappa$ as descriptive: they characterise the LLM's behaviour but are not used to test H1.
+\paragraph{Secondary metrics.} Sharpe Ratio (SR), Maximum Drawdown (MD), Daily Volatility (DV), Annualised Volatility (AV), per the contest specification, plus two diagnostic metrics specific to this paper: the \emph{LLM veto rate} $\rho = \frac{1}{T} \sum_t \mathbf{1}[v_t = \texttt{false}]$ and the \emph{decision consistency} $\kappa = \frac{1}{T} \sum_t \mathbf{1}[v_t = \texttt{true}]$ on cycles where $\hat{a}_t \neq \textsc{hold}$. We treat $\rho$ and $\kappa$ as descriptive: they characterise the LLM\textquoteright s behaviour but are not used to test H1.
 
+<<<<<<< HEAD
+\paragraph{Baselines and current execution status.} We pre-register four baselines: (B1) buy-and-hold equal-weight on $\mathcal{U}$; (B2) rules-only (signal layer with no LLM filter and no sizing layer); (B3) rules + sizing (no LLM filter); (B4) random action with $\mathcal{R}$ enforced. The current run executes only \textbf{(B3)} and \textbf{(B3+LLM)}, the latter being the cell that activates the Groq veto. Baselines (B1), (B2), (B4) are part of the pre-registered grid but are \emph{not} executed in the present run; they are listed here so that subsequent cells can be added without reopening the protocol. H1 is tested specifically against (B3) using (B3+LLM) as the treatment cell.
+=======
 \paragraph{Baselines.} We pre-register the following baselines: (B1) buy-and-hold equal-weight on $\mathcal{U}$; (B2) rules-only (signal layer with no LLM filter and no risk envelope); (B3) rules + risk (no LLM filter); (B4) random action with $\mathcal{R}$ enforced. H1 is tested specifically against (B3). At submission time, the cells actually executed on Alpaca paper trading are (B3) and (B3+LLM) -- the two cells directly required to test H1; (B1), (B2), and (B4) are pre-registered and are scheduled to be run as separate paper accounts before the final revision.
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
+<<<<<<< HEAD
+\paragraph{Ablations.} (A1) (B3) vs.\ (B3+LLM), the only ablation actually executed at the time of writing. (A2) Cross-provider comparison (e.g., OpenAI vs.\ Anthropic vs.\ Groq) at fixed temperature and identical prompt -- pre-registered as \emph{exploratory} and explicitly deferred to future work; the present run uses Groq only. (A3) Two risk envelopes (conservative vs.\ aggressive) -- pre-registered as exploratory and deferred until Equations~\eqref{eq:gross}--\eqref{eq:take} are runtime-enforced (Section~\ref{sec:risk}). Each ablation is executed on a separate paper account.
+=======
 \paragraph{Ablations.} (A1) rules+risk vs.\ rules+LLM+risk -- this is the ablation currently under live evaluation, with the LLM provider set to Groq (\texttt{llama-3.3-70b-versatile} via the OpenAI-compatible Groq endpoint, temperature 0.2, JSON-only response format); (A2) cross-provider comparison across OpenAI, Anthropic, and Groq at fixed temperature and identical prompt -- we acknowledge that this confounds provider identity with prompt-following behaviour and report A2 as exploratory rather than confirmatory, and we note that only the Groq cell is currently populated; (A3) two risk envelopes (conservative vs.\ aggressive). Each ablation is run on a separate paper account.
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
-\paragraph{Multiple-comparison correction.} The full grid B1--B4 $\times$ A1--A3 yields up to twelve cells. To avoid inflating type-I error, all secondary comparisons (i.e., everything beyond H1) use Benjamini--Hochberg correction at false-discovery rate $\alpha = 0.10$, computed over the family of secondary $p$-values reported in the final table.
+\paragraph{Multiple-comparison correction.} For the cells actually reported, all secondary comparisons (i.e., everything beyond H1) use Benjamini--Hochberg correction at false-discovery rate $\alpha = 0.10$, computed over the family of secondary $p$-values reported in the final table.
 
-\paragraph{Statistical caveats.} Cumulative return on a short window is a high-variance estimator. We will report bootstrap 95\% confidence intervals for SR and MD when the log spans at least $T_{\min} = 500$ decision cycles per account, and otherwise leave the corresponding cells as \texttt{null}.
+\paragraph{Statistical caveats.} Cumulative return on a short window is a high-variance estimator. Bootstrap 95\% confidence intervals for SR and MD are reported only when the log spans at least $T_{\min} = 500$ decision cycles per account; otherwise the corresponding cells are left as \texttt{null}.
 
+<<<<<<< HEAD
+\paragraph{Justification of $T_{\min}$.} At $\Delta_t = 5$~min, $T_{\min} = 500$ corresponds to roughly $500 \times 5 = 2{,}500$ minutes, i.e.\ approximately $41.7$ hours or $1.7$ calendar days of continuous operation. We treat this as a strict lower bound for reporting bootstrap intervals on diagnostic metrics, not as a sufficient horizon for asymptotic Sharpe inference. We are explicit that this threshold is a minimum -- not a power-analysed sufficient horizon -- and that any conclusion drawn at $T \approx T_{\min}$ is preliminary. A formal power analysis for the SR estimator under the realised signal-to-noise ratio is left to a future revision once initial data are in hand. We further note a degenerate-run risk: under the current signal layer and a quiet market regime, a non-trivial fraction of cycles emit $\textsc{hold}$ and no order is submitted; in that case the equity curves of (B3) and (B3+LLM) coincide by construction and H1 cannot be tested. Should this happen, we will report H1 as \texttt{null} (insufficient executed orders) rather than fabricate a positive result.
+=======
 \paragraph{Justification of $T_{\min}$.} At $\Delta_t = 5$ min, $T_{\min} = 500$ corresponds to $2{,}500$ minutes, i.e., approximately $41.7$ hours (about $1.7$ calendar days) of continuous 24/7 crypto operation. We treat this as a lower bound for reporting bootstrap intervals on diagnostic metrics rather than as a sufficient horizon for asymptotic Sharpe inference. We are explicit that this threshold is a minimum -- not a power-analysed sufficient horizon -- and that any conclusion drawn at $T \approx T_{\min}$ is preliminary. A formal power analysis for the SR estimator under the realised signal-to-noise ratio, and a re-evaluation of $T_{\min}$ in calendar-day terms once $\Delta_t$ is finalised, are left to a future revision once initial data are in hand.
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 
-\paragraph{Stop-rule.} If, at the final revision deadline, fewer than $T_{\min}$ cycles are available for a given ablation, the row is reported as ``insufficient data'' and is \emph{not} imputed.
+\paragraph{Stop-rule.} If, at the final revision deadline, fewer than $T_{\min}$ cycles are available for a given cell, or if the cell produced no executed orders, the corresponding row is reported as ``insufficient data\textquoteright\textquoteright\ and is \emph{not} imputed.
+
+\section{Preliminary Results and Stop-Rule Outcome}
+\label{sec:results}
+We report the state of the live paper-trading run at the time of writing. Per the pre-registered stop-rule (Section~\ref{sec:protocol}), no confidence interval is computed and no decision on H1 is taken until both cells reach $T_{\min}=500$ decision cycles. The numbers below are descriptive only.
+
+\paragraph{Cycle progression.} As of the latest committed metrics, $n_{\text{B3}}=90$ and $n_{\text{B3+LLM}}=66$, corresponding to $18.0\%$ and $13.2\%$ of the pre-registered horizon respectively. The treatment cell (B3+LLM) was started later than the control cell, and the run is being continued until both cells exceed $T_{\min}$.
+
+\paragraph{Descriptive metrics.} Table~\ref{tab:per_cell_metrics} reports the point estimates for cumulative return (CR), Sharpe ratio (SR), maximum drawdown (MD), daily volatility (DV) and annualised volatility (AV) extracted from \texttt{results/metrics.json}. We emphasise that these point values are not the basis for any empirical claim: at $n < T_{\min}$ the bootstrap 95\% confidence intervals are reported as \texttt{null} and the H1 verdict is \texttt{not tested}.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Per-cell descriptive metrics at submission time. Source: \texttt{results/metrics.json}, auto-generated by \texttt{scripts/h1\_test.py}. Bootstrap 95\% confidence intervals are reported as \texttt{null} per the pre-registered stop-rule whenever $n < T_{\min}=500$. The point Sharpe ratios are listed for transparency only; on $n<100$ they are not interpretable as performance.}
+\label{tab:per_cell_metrics}
+\begin{tabular}{lrrrrrr}
+\toprule
+Cell    & $n$ cycles & CR ($\%$)        & SR (pt.) & MD ($\%$) & DV ($\%$) & AV ($\%$) \\
+\midrule
+B3      & 90         & $0.058$          & $4.41$   & $0.237$   & $0.831$   & $15.87$   \\
+B3+LLM  & 66         & $0.048$          & $4.85$   & $0.249$   & $0.856$   & $16.35$   \\
+\midrule
+Target  & $\geq 500$ & 95\% bootstrap   & 95\% bootstrap & 95\% bootstrap & --- & --- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{What can already be observed.} On the current sample, both cells are very close in CR (B3: $5.82\!\times\!10^{-4}$; B3+LLM: $4.82\!\times\!10^{-4}$) and in MD ($0.237\%$ vs $0.249\%$). The point Sharpe ratios are also of comparable magnitude ($4.41$ vs $4.85$). At the current horizon ($n=90$ and $n=66$), the standard error of these estimators is large and any apparent difference is likely within sampling noise; we therefore do not interpret these numbers as evidence for or against H1. They serve only to confirm that the pipeline is producing well-formed metrics on real Alpaca paper-trading data.
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Pre-registered H1 hypothesis test, current status. Per the stop-rule (Section~\ref{sec:protocol}), the test is not executed until both cells reach $T_{\min}=500$.}
+\label{tab:h1}
+\begin{tabular}{lll}
+\toprule
+Quantity                                   & Pre-registered threshold        & Current value \\
+\midrule
+$n_{\text{B3}}$                            & $\geq 500$                      & $90$ ($18.0\%$) \\
+$n_{\text{B3+LLM}}$                        & $\geq 500$                      & $66$ ($13.2\%$) \\
+$\mathrm{MD}_{\text{B3}}-\mathrm{MD}_{\text{B3+LLM}}$ (95\% CI) & $\geq \Delta_{\text{MD}}=2$ pp & \texttt{null} \\
+$\mathrm{CR}_{\text{B3+LLM}}-\mathrm{CR}_{\text{B3}}$ (95\% CI) & $\geq -\Delta_{\text{CR}}=-1$ pp & \texttt{null} \\
+H1 verdict                                 & accept / reject / null          & \texttt{not tested (insufficient data)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Pipeline validation.} The current run \emph{does} confirm that the end-to-end system operates as specified: Alpaca paper-trading bars are ingested, the rule layer emits signals, the LLM-veto layer is queried in B3+LLM only (Groq, \texttt{llama-3.3-70b-versatile}), the per-position notional cap of Section~\ref{sec:risk} is applied, equity snapshots are appended, and \texttt{scripts/h1\_test.py} produces the \texttt{null}-filled artefact required by the stop-rule. No imputed or fabricated metric is committed.
+
+% INSERT FINAL RESULTS HERE: once both cells reach T_min=500, replace Tables 1 and 2 with the populated metrics and the H1 verdict, and add an equity-curve figure generated from logs/B3/equity.csv and logs/B3_LLM/equity.csv.
 
 \section{Discussion}
-
 We separate the two classes of claim that this paper makes about the LLM-veto layer.
 
-\paragraph{Structural claims (true by construction).} The decision pipeline of Equation~\eqref{eq:pipeline} guarantees three properties regardless of LLM behaviour. First, the executed action set is contained in the rule-proposed action set augmented with $(\textsc{hold}, 0)$. Second, $\mathcal{V}_{\text{LLM}}$ cannot increase exposure: it can only replace a rule-proposed order with $(\textsc{hold}, 0)$. Third, every executed order satisfies the risk envelope of Equations~\eqref{eq:per-position}--\eqref{eq:take}. These properties follow from the signature of $\mathcal{V}_{\text{LLM}}$ and the placement of $\mathcal{R}$ and are not, on their own, an empirical contribution.
+\paragraph{Structural claims (true by construction).} The decision pipeline of Equation~\eqref{eq:pipeline} guarantees three properties regardless of LLM behaviour. First, the executed action set is contained in the rule-proposed action set augmented with $(\textsc{hold}, 0)$. Second, $\mathcal{V}_{\text{LLM}}$ cannot increase exposure: it can only replace a rule-proposed order with $(\textsc{hold}, 0)$. Third, every executed order satisfies the per-position cap of Equation~\eqref{eq:per-position}. These properties follow from the signature of $\mathcal{V}_{\text{LLM}}$ and the placement of $\mathcal{R}$ and are not, on their own, an empirical contribution.
 
 \paragraph{Empirical claims (to be tested).} Whether $\mathcal{V}_{\text{LLM}}$ improves \emph{realised} risk-adjusted return on live paper trading is a separate question. We do not assert it. The pre-registered hypothesis H1 of Section~\ref{sec:protocol} formalises one specific empirical claim (drawdown reduction at bounded return cost). H1 may well be falsified by the data, in which case we will report the null result rather than retire the hypothesis silently. Note that vetoing a profitable trade is itself a form of opportunity cost, so the design is not unconditionally safe in the equity sense -- only in the exposure sense.
 
 \paragraph{Trade-off.} By making $\mathcal{S}$ the sole source of trade origination, the system caps the upside that a strong LLM might provide as a forecaster. We view this as appropriate for a safety-first prototype targeting paper trading, and we do not claim it is the right design for production capital deployment.
 
 \section{Limitations}
+\label{sec:limitations}
+\paragraph{No mature empirical results at submission time.} The paper-trading log contains $n_{\text{B3}}=90$ and $n_{\text{B3+LLM}}=66$ decision cycles, i.e.\ $18.0\%$ and $13.2\%$ of the pre-registered $T_{\min}=500$ per cell. All H1-relevant confidence intervals are reported as \texttt{null} and H1 is \emph{not tested}. The empirical claims of this paper are deferred to the revision that ships a completed log.
 
+<<<<<<< HEAD
+=======
 \paragraph{No empirical results at submission time.} The paper-trading log for both currently executed cells (B3 and B3+LLM) is well below $T_{\min}=500$ cycles -- on the order of ten cycles per cell at the time of writing -- so all reported diagnostic and confidence-interval metrics are \texttt{null} per the stop-rule. The pre-registered baselines (B1), (B2), and (B4) have not yet been run.
 
 \paragraph{Partial runtime risk envelope.} As detailed in Section~\ref{sec:risk}, the runtime version of $\mathcal{R}$ shipped at submission time enforces only the per-position notional cap (Equation~\eqref{eq:per-position}). The gross-exposure, stop-loss, and take-profit thresholds are exposed in the configuration but are not yet a separate runtime gate. The architecture and the empirical claims should therefore be read as conditional on the per-position envelope only; promoting the remaining constraints to runtime shields is planned.
@@ -181,6 +277,7 @@ We separate the two classes of claim that this paper makes about the LLM-veto la
 
 \paragraph{Single LLM provider in current run.} The live A1 cell uses Groq (\texttt{llama-3.3-70b-versatile}) only. The cross-provider ablation A2 (OpenAI, Anthropic, Groq) is implemented in the LLM module but has not yet been executed across providers, and is reported as exploratory rather than confirmatory.
 
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 \paragraph{Selection bias in the universe.} The universe $\{$BTC/USD, ETH/USD, SOL/USD$\}$ is hand-picked and consists of three large-cap crypto assets on a single broker. Results, when available, will not be claimed to generalise to broader universes, equities, or other brokers.
 
 \paragraph{Paper-trading idealisations.} Alpaca paper trading does not model order-book impact, partial fills, or realistic slippage. Live trading behaviour would almost certainly differ.
@@ -189,37 +286,37 @@ We separate the two classes of claim that this paper makes about the LLM-veto la
 
 \paragraph{LLM filter is not a forecaster.} By construction the LLM can only veto orders proposed by $\mathcal{S}$. The system cannot benefit from any genuine forecasting ability the LLM might otherwise provide.
 
+\paragraph{Partial risk envelope.} The present implementation enforces only the per-position cap of Equation~\eqref{eq:per-position} as a runtime gate. The configuration also exposes \texttt{MAX\_GROSS\_EXPOSURE\_PCT}, \texttt{STOP\_LOSS\_PCT} and \texttt{TAKE\_PROFIT\_PCT}, but these are not yet converted into runtime gates that would replace a candidate order with $(\textsc{hold},0)$. Promoting them is the most natural next step and is required before the architecture can be honestly described as a complete shield in the safe-RL sense~\cite{shielded_rl_alshiekh2018}.
+
+\paragraph{Single LLM provider in the present run.} The current run uses Groq (\texttt{llama-3.3-70b-versatile}) as the sole LLM. Cross-provider robustness has not been measured. Provider-level confounding -- for example differences in JSON-following behaviour or in default safety filters -- therefore cannot be ruled out, and we do not present provider-comparison numbers in this draft.
+
+\paragraph{Possible degenerate regime.} If the deployed signal layer emits $\textsc{hold}$ for the vast majority of cycles during the evaluation window, both (B3) and (B3+LLM) may execute few or no orders, in which case H1 is not testable from the recorded data. Section~\ref{sec:protocol} commits to reporting this case as \texttt{null} rather than imputing a result.
+
 \paragraph{Provider sensitivity.} Hosted LLM providers do not always guarantee long-term version pinning. Exact reproduction of veto decisions therefore requires logging the model identifier and prompt used at each cycle, which the system does, but only the agent operator can replay.
 
 \paragraph{Bibliographic concentration.} Three of the cited works share a single author. We have partially mitigated this in the present revision by adding finance-LLM, LLM-agent, and safe-RL references~\cite{bloomberggpt_wu2023,fingpt_yang2023,lopezlira_tang2023,react_yao2022,reflexion_shinn2023,shielded_rl_alshiekh2018}; further broadening is left to future revisions once additional task-specific work is integrated.
 
 \section{Ethical Considerations}
-
 \paragraph{No financial advice.} The agent and this paper do not constitute financial advice and must not be used with real capital. All trading is performed in Alpaca paper mode.
-
-\paragraph{No personal data.} The system does not collect, store, or transmit personal data of any third party. Only the operator's own broker account is used.
-
-\paragraph{Credentials hygiene.} API keys are stored exclusively in the operator's local \texttt{.env} file and are excluded from the repository via \texttt{.gitignore}; \texttt{.env.example} ships only placeholders.
-
-\paragraph{LLM safety envelope.} The LLM cannot, by construction, originate trades, change tickers, or inflate sizes. A hallucinated response cannot place a non-conforming order, because $\mathcal{R}$ is applied after $\mathcal{V}_{\text{LLM}}$.
-
-\paragraph{Compliance.} The work follows the SecureFinAI Contest 2026 academic-use guidelines. We have not solicited or used any non-public market data, and we do not interact with real users' accounts.
-
+\paragraph{No personal data.} The system does not collect, store, or transmit personal data of any third party. Only the operator\textquoteright s own broker account is used.
+\paragraph{Credentials hygiene.} API keys are stored exclusively in the operator\textquoteright s local \texttt{.env} file and are excluded from the repository via \texttt{.gitignore}; \texttt{.env.example} ships only placeholders.
+\paragraph{LLM safety envelope.} The LLM cannot, by construction, originate trades, change tickers, or inflate sizes. A hallucinated response cannot place an order beyond the per-position cap, because $\mathcal{R}$ is applied after $\mathcal{V}_{\text{LLM}}$.
+\paragraph{Compliance.} The work follows the SecureFinAI Contest 2026 academic-use guidelines. We have not solicited or used any non-public market data, and we do not interact with real users\textquoteright\ accounts.
 \paragraph{Reproducibility transparency.} Unmeasured metrics are left as \texttt{null} rather than fabricated, in line with the NeurIPS reproducibility ethos~\cite{pineau_reproducibility2020}.
 
 \section{Conclusion}
+OpenClaw-Agent is a constrained, auditable architecture in which an LLM is allowed to influence trading only by vetoing rule-proposed orders, and in which a deterministic per-position sizing layer is the final arbiter. The architectural property -- that the executed action set is a subset of the rule-proposed action set, and that no executed order can exceed the per-position notional cap -- is a definitional consequence of the design and not, on its own, an empirical contribution. We are explicit that the broader risk envelope (gross exposure, stop-loss, take-profit) is currently declared but not yet runtime-enforced, and that promoting those constraints is the most natural extension of this work. The pre-registered protocol of Section~\ref{sec:protocol}, together with hypothesis H1, specifies the falsifiable empirical claims we intend to test. The current run uses a single LLM provider (Groq, \texttt{llama-3.3-70b-versatile}) at $\Delta_t=5$~min on three crypto pairs; H1 is in progress and will be reported, or marked \texttt{null}, according to the pre-registered stop-rule. The repository, the experimental protocol, and this paper are released openly to support reproducibility and to make explicit what has and has not been measured at submission time.
 
+<<<<<<< HEAD
+=======
 OpenClaw-Agent is a constrained, auditable architecture in which an LLM is allowed to influence trading only by vetoing rule-proposed orders, and in which a deterministic risk envelope -- currently enforcing the per-position notional cap, with the gross-exposure and drawdown thresholds planned as additional runtime shields -- is the final arbiter. The architectural property that the executed action set is a subset of the rule-proposed action set is a definitional consequence of the design and not, on its own, an empirical contribution. At submission time, the live paper-trading run has executed two cells, (B3) and (B3+LLM), with the Groq \texttt{llama-3.3-70b-versatile} model as the veto LLM; both cells remain below the pre-registered $T_{\min}$ stop-rule, and we therefore report no empirical performance numbers. The pre-registered protocol of Section~\ref{sec:protocol}, together with hypothesis H1, specifies the falsifiable empirical claims we intend to test once $T_{\min}$ is reached. The repository, the experimental protocol, and this paper are released openly to support reproducibility and to make explicit what has and has not been measured at submission time.
 
+>>>>>>> 82184ac196867076745027d25de5d3d11afaac04
 \section*{Appendix}
-
 \paragraph{Repository.} \url{https://github.com/jeandirel/securefinai-openclaw-agent}
-
 \paragraph{Configuration.} See \texttt{.env.example} for the full list of environment variables (universe, decision interval, risk parameters, optional LLM provider).
-
 \paragraph{Reproducibility.} See \texttt{README.md} for installation and run instructions, and \texttt{results/metrics\_template.json} for the metrics schema.
 
 \bibliographystyle{plain}
 \bibliography{references}
-
 \end{document}
