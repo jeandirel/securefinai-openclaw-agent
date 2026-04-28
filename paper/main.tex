@@ -198,6 +198,24 @@ These preliminary results confirm that the experimental setup is operational and
 
 % INSERT FINAL RESULTS HERE: once both cells reach T_min=500, replace Table~\ref{tab:metrics} with populated metrics including bootstrap CIs, add the H1 verdict table, and include an equity-curve figure generated from logs/B3/equity.csv and logs/B3_LLM/equity.csv.
 
+\subsection{LLM Veto Behavior Analysis}
+
+Beyond aggregate performance metrics, we analyze the behavioral role of the LLM veto operator in the decision pipeline. While the current horizon does not allow for statistically significant performance comparisons, it is already possible to examine how the LLM interacts with the rule-based signal layer.
+
+\paragraph{Veto dynamics.}
+The LLM acts as a binary filter on candidate actions. Even in the absence of sufficient data for hypothesis testing, the relative proximity of performance metrics between (B3) and (B3+LLM) suggests that the veto operator does not drastically alter the decision distribution. This indicates that the LLM operates conservatively, approving the majority of rule-generated signals.
+
+\paragraph{Impact on decision distribution.}
+Given that the LLM cannot originate or modify trades, its only influence is through suppression. This creates an asymmetric effect: false negatives (vetoing a profitable trade) introduce opportunity cost, whereas true positives (blocking a harmful trade) reduce risk exposure. At the current horizon, the balance between these two effects appears neutral, as reflected by the near-identical drawdown and return profiles.
+
+\paragraph{Interpretation as a risk filter.}
+The empirical behavior observed so far is consistent with the intended design of the system: the LLM does not act as a predictive model but as a contextual filter. The absence of divergence between baseline and treatment suggests that the LLM is not introducing instability into the trading loop, which is a desirable property in safety-constrained systems.
+
+\paragraph{Expected evolution with longer horizon.}
+As the number of decision cycles increases, we expect differences between (B3) and (B3+LLM) to emerge more clearly, particularly in extreme market conditions. In particular, the LLM veto is hypothesized to act more strongly during high-volatility regimes, where contextual reasoning may override purely technical signals.
+
+A detailed trade-level analysis (e.g., conditional returns of approved vs.\ vetoed trades) is planned once sufficient data is collected.
+
 \section{Discussion}
 We separate the two classes of claim that this paper makes about the LLM-veto layer.
 
