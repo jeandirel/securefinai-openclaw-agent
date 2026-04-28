@@ -1,12 +1,12 @@
 ﻿{
-    "timestamp_utc":  "2026-04-28T20:12:41Z",
+    "timestamp_utc":  "2026-04-28T20:17:49Z",
     "source":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\logs",
     "destination":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\results\\logs_snapshot",
     "files":  [
                   {
                       "path":  "manifest.json",
                       "bytes":  4160,
-                      "last_write_time":  "2026-04-28T20:07:40Z"
+                      "last_write_time":  "2026-04-28T20:12:41Z"
                   },
                   {
                       "path":  "B3\\agent.log",
@@ -45,13 +45,13 @@
                   },
                   {
                       "path":  "B3_LLM\\agent.log",
-                      "bytes":  147924,
-                      "last_write_time":  "2026-04-28T20:11:01Z"
+                      "bytes":  149714,
+                      "last_write_time":  "2026-04-28T20:17:02Z"
                   },
                   {
                       "path":  "B3_LLM\\equity.csv",
-                      "bytes":  7410,
-                      "last_write_time":  "2026-04-28T20:10:59Z"
+                      "bytes":  7530,
+                      "last_write_time":  "2026-04-28T20:17:00Z"
                   },
                   {
                       "path":  "B3_LLM\\orders.jsonl",
@@ -75,13 +75,13 @@
                   },
                   {
                       "path":  "B3_LLM\\stdout.log",
-                      "bytes":  292104,
-                      "last_write_time":  "2026-04-28T20:11:01Z"
+                      "bytes":  295684,
+                      "last_write_time":  "2026-04-28T20:17:02Z"
                   },
                   {
                       "path":  "metrics\\autosave.log",
-                      "bytes":  127981,
-                      "last_write_time":  "2026-04-28T20:12:41Z"
+                      "bytes":  128657,
+                      "last_write_time":  "2026-04-28T20:17:49Z"
                   },
                   {
                       "path":  "metrics\\pid.txt",

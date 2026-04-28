@@ -23,15 +23,15 @@
     },
     {
       "label": "B3_LLM",
-      "n_cycles": 186,
+      "n_cycles": 189,
       "sufficient": false,
-      "cumulative_return": -0.0011351451035149784,
-      "sharpe_ratio": -10.224771696679467,
+      "cumulative_return": 0.00019485361315285665,
+      "sharpe_ratio": 1.7361072675190063,
       "sharpe_ci95": null,
       "max_drawdown": 0.0025574536726325104,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.008196982605229823,
-      "annualised_volatility": 0.15660313278510973
+      "daily_volatility": 0.008617798318793833,
+      "annualised_volatility": 0.1646428057041762
     }
   ],
   "h1": {
