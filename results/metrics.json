@@ -5,33 +5,33 @@
     "delta_cr": 0.01,
     "n_bootstrap": 10000,
     "alpha_fdr": 0.1,
-    "decision_interval_min": 5,
+    "decision_interval_min": 2,
     "trading_days_per_year": 365
   },
   "cells": [
     {
       "label": "B3",
-      "n_cycles": 123,
+      "n_cycles": 1,
       "sufficient": false,
-      "cumulative_return": -0.019977799999999934,
-      "sharpe_ratio": -29.004427906304244,
+      "cumulative_return": null,
+      "sharpe_ratio": null,
       "sharpe_ci95": null,
-      "max_drawdown": 0.024390788851720486,
+      "max_drawdown": null,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.031057390209210254,
-      "annualised_volatility": 0.5933506068182701
+      "daily_volatility": null,
+      "annualised_volatility": null
     },
     {
       "label": "B3_LLM",
-      "n_cycles": 99,
+      "n_cycles": 1,
       "sufficient": false,
-      "cumulative_return": -0.022657604025137834,
-      "sharpe_ratio": -37.725433813459176,
+      "cumulative_return": null,
+      "sharpe_ratio": null,
       "sharpe_ci95": null,
-      "max_drawdown": 0.025565711981264824,
+      "max_drawdown": null,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.03381428080225993,
-      "annualised_volatility": 0.6460209276436335
+      "daily_volatility": null,
+      "annualised_volatility": null
     }
   ],
   "h1": {

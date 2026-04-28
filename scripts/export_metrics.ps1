@@ -1,7 +1,8 @@
 param(
     [string]$OutJson = "results/metrics.json",
     [string]$OutMd = "results/h1_table.md",
-    [string]$B3LlmStartFrom = "2026-04-26T19:52:54Z"
+    [string]$B3StartFrom = "2026-04-28T14:02:15Z",
+    [string]$B3LlmStartFrom = "2026-04-28T14:02:15Z"
 )
 
 Set-StrictMode -Version Latest
@@ -33,6 +34,10 @@ $h1Args = @(
     "--out-json", $OutJson,
     "--out-md", $OutMd
 )
+if ($B3StartFrom) {
+    $h1Args += "--start-from"
+    $h1Args += "B3=$B3StartFrom"
+}
 if ($B3LlmStartFrom) {
     $h1Args += "--start-from"
     $h1Args += "B3_LLM=$B3LlmStartFrom"

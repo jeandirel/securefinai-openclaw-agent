@@ -1,22 +1,22 @@
 ﻿{
-    "timestamp_utc":  "2026-04-28T13:49:54Z",
+    "timestamp_utc":  "2026-04-28T13:59:56Z",
     "source":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\logs",
     "destination":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\results\\logs_snapshot",
     "files":  [
                   {
                       "path":  "manifest.json",
-                      "bytes":  3678,
-                      "last_write_time":  "2026-04-28T13:44:52Z"
+                      "bytes":  3679,
+                      "last_write_time":  "2026-04-28T13:54:55Z"
                   },
                   {
                       "path":  "B3\\agent.log",
-                      "bytes":  50313,
-                      "last_write_time":  "2026-04-28T13:48:42Z"
+                      "bytes":  51071,
+                      "last_write_time":  "2026-04-28T13:58:42Z"
                   },
                   {
                       "path":  "B3\\equity.csv",
-                      "bytes":  4965,
-                      "last_write_time":  "2026-04-28T13:48:39Z"
+                      "bytes":  5045,
+                      "last_write_time":  "2026-04-28T13:58:39Z"
                   },
                   {
                       "path":  "B3\\orders.jsonl",
@@ -40,18 +40,18 @@
                   },
                   {
                       "path":  "B3\\stdout.log",
-                      "bytes":  99290,
-                      "last_write_time":  "2026-04-28T13:48:42Z"
+                      "bytes":  100806,
+                      "last_write_time":  "2026-04-28T13:58:42Z"
                   },
                   {
                       "path":  "B3_LLM\\agent.log",
-                      "bytes":  57199,
-                      "last_write_time":  "2026-04-28T13:48:42Z"
+                      "bytes":  57957,
+                      "last_write_time":  "2026-04-28T13:58:40Z"
                   },
                   {
                       "path":  "B3_LLM\\equity.csv",
-                      "bytes":  5034,
-                      "last_write_time":  "2026-04-28T13:48:39Z"
+                      "bytes":  5114,
+                      "last_write_time":  "2026-04-28T13:58:39Z"
                   },
                   {
                       "path":  "B3_LLM\\orders.jsonl",
@@ -75,13 +75,13 @@
                   },
                   {
                       "path":  "B3_LLM\\stdout.log",
-                      "bytes":  110654,
-                      "last_write_time":  "2026-04-28T13:48:42Z"
+                      "bytes":  112170,
+                      "last_write_time":  "2026-04-28T13:58:40Z"
                   },
                   {
                       "path":  "metrics\\autosave.log",
-                      "bytes":  73961,
-                      "last_write_time":  "2026-04-28T13:49:53Z"
+                      "bytes":  75739,
+                      "last_write_time":  "2026-04-28T13:59:56Z"
                   },
                   {
                       "path":  "metrics\\pid.txt",

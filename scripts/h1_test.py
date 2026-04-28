@@ -59,8 +59,8 @@ DELTA_MD: float = 0.02     # 2 percentage points -- H1 drawdown reduction
 DELTA_CR: float = 0.01     # 1 percentage point  -- H1 max return cost
 N_BOOTSTRAP: int = 10_000  # bootstrap iterations
 ALPHA_FDR: float = 0.10    # Benjamini-Hochberg FDR
-DECISION_INTERVAL_MIN: int = 5
-CYCLES_PER_DAY: float = (24 * 60) / DECISION_INTERVAL_MIN  # = 288
+DECISION_INTERVAL_MIN: int = 2
+CYCLES_PER_DAY: float = (24 * 60) / DECISION_INTERVAL_MIN  # = 720
 TRADING_DAYS_PER_YEAR: int = 365  # crypto = 365 (24/7)
 
 
