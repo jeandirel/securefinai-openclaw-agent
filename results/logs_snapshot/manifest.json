@@ -1,22 +1,22 @@
 ﻿{
-    "timestamp_utc":  "2026-04-28T13:59:56Z",
+    "timestamp_utc":  "2026-04-28T14:04:58Z",
     "source":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\logs",
     "destination":  "C:\\Users\\mon pc\\Downloads\\agent\\securefinai-openclaw-agent\\results\\logs_snapshot",
     "files":  [
                   {
                       "path":  "manifest.json",
                       "bytes":  3679,
-                      "last_write_time":  "2026-04-28T13:54:55Z"
+                      "last_write_time":  "2026-04-28T13:59:56Z"
                   },
                   {
                       "path":  "B3\\agent.log",
-                      "bytes":  51071,
-                      "last_write_time":  "2026-04-28T13:58:42Z"
+                      "bytes":  52070,
+                      "last_write_time":  "2026-04-28T14:04:25Z"
                   },
                   {
                       "path":  "B3\\equity.csv",
-                      "bytes":  5045,
-                      "last_write_time":  "2026-04-28T13:58:39Z"
+                      "bytes":  5125,
+                      "last_write_time":  "2026-04-28T14:04:18Z"
                   },
                   {
                       "path":  "B3\\orders.jsonl",
@@ -26,12 +26,12 @@
                   {
                       "path":  "B3\\pid.txt",
                       "bytes":  7,
-                      "last_write_time":  "2026-04-28T11:13:35Z"
+                      "last_write_time":  "2026-04-28T14:02:15Z"
                   },
                   {
                       "path":  "B3\\runner.log",
-                      "bytes":  1370,
-                      "last_write_time":  "2026-04-28T11:13:35Z"
+                      "bytes":  1522,
+                      "last_write_time":  "2026-04-28T14:02:15Z"
                   },
                   {
                       "path":  "B3\\stderr.log",
@@ -40,18 +40,18 @@
                   },
                   {
                       "path":  "B3\\stdout.log",
-                      "bytes":  100806,
-                      "last_write_time":  "2026-04-28T13:58:42Z"
+                      "bytes":  102804,
+                      "last_write_time":  "2026-04-28T14:04:25Z"
                   },
                   {
                       "path":  "B3_LLM\\agent.log",
-                      "bytes":  57957,
-                      "last_write_time":  "2026-04-28T13:58:40Z"
+                      "bytes":  58957,
+                      "last_write_time":  "2026-04-28T14:04:19Z"
                   },
                   {
                       "path":  "B3_LLM\\equity.csv",
-                      "bytes":  5114,
-                      "last_write_time":  "2026-04-28T13:58:39Z"
+                      "bytes":  5194,
+                      "last_write_time":  "2026-04-28T14:04:18Z"
                   },
                   {
                       "path":  "B3_LLM\\orders.jsonl",
@@ -61,12 +61,12 @@
                   {
                       "path":  "B3_LLM\\pid.txt",
                       "bytes":  7,
-                      "last_write_time":  "2026-04-28T11:13:35Z"
+                      "last_write_time":  "2026-04-28T14:02:15Z"
                   },
                   {
                       "path":  "B3_LLM\\runner.log",
-                      "bytes":  962,
-                      "last_write_time":  "2026-04-28T11:13:35Z"
+                      "bytes":  1122,
+                      "last_write_time":  "2026-04-28T14:02:15Z"
                   },
                   {
                       "path":  "B3_LLM\\stderr.log",
@@ -75,13 +75,13 @@
                   },
                   {
                       "path":  "B3_LLM\\stdout.log",
-                      "bytes":  112170,
-                      "last_write_time":  "2026-04-28T13:58:40Z"
+                      "bytes":  114170,
+                      "last_write_time":  "2026-04-28T14:04:19Z"
                   },
                   {
                       "path":  "metrics\\autosave.log",
-                      "bytes":  75739,
-                      "last_write_time":  "2026-04-28T13:59:56Z"
+                      "bytes":  76840,
+                      "last_write_time":  "2026-04-28T14:04:57Z"
                   },
                   {
                       "path":  "metrics\\pid.txt",
