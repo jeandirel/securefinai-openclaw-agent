@@ -11,27 +11,27 @@
   "cells": [
     {
       "label": "B3",
-      "n_cycles": 28,
+      "n_cycles": 90,
       "sufficient": false,
-      "cumulative_return": 2.5900000000023127e-05,
-      "sharpe_ratio": 0.8925584993333867,
+      "cumulative_return": 0.000582400000000094,
+      "sharpe_ratio": 4.411693295734408,
       "sharpe_ci95": null,
-      "max_drawdown": 0.0011035000000000582,
+      "max_drawdown": 0.002366318874961044,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.006325725212405617,
-      "annualised_volatility": 0.12085281049253839
+      "daily_volatility": 0.008306769065298878,
+      "annualised_volatility": 0.15870060015965703
     },
     {
       "label": "B3_LLM",
-      "n_cycles": 4,
+      "n_cycles": 66,
       "sufficient": false,
-      "cumulative_return": 0.0002507509525937479,
-      "sharpe_ratio": 209.94200877384873,
+      "cumulative_return": 0.00048249804360245285,
+      "sharpe_ratio": 4.852032087961492,
       "sharpe_ci95": null,
-      "max_drawdown": -0.0,
+      "max_drawdown": 0.0024944638936971798,
       "max_drawdown_ci95": null,
-      "daily_volatility": 0.002190551495886349,
-      "annualised_volatility": 0.041850427566363306
+      "daily_volatility": 0.00855772872676627,
+      "annualised_volatility": 0.1634951777598839
     }
   ],
   "h1": {
