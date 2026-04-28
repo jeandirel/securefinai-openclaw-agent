@@ -1,8 +1,8 @@
 param(
     [string]$OutJson = "results/metrics.json",
     [string]$OutMd = "results/h1_table.md",
-    [string]$B3StartFrom = "2026-04-28T14:02:15Z",
-    [string]$B3LlmStartFrom = "2026-04-28T14:02:15Z"
+    [string]$B3StartFrom = "",
+    [string]$B3LlmStartFrom = ""
 )
 
 Set-StrictMode -Version Latest
